@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAXDEPTH 6
+#define MAXDEPTH 7
 
 typedef struct {
     int x, y;
@@ -203,9 +203,10 @@ int getMove(const int *const player,
             int alpha,
             int beta)
 {
-    if (depth == MAXDEPTH) return score;
+    int isMaximizing = (*player == currPlayer ? 1 : -1),
+        bestScore = isMaximizing == 1 ? 0x80000000 : 0x7fffffff;
 
-    int isMaximizing = *player == currPlayer;
+    if (depth == MAXDEPTH) return score;
 
     for (int i = 1; i <= 8; i++)
     {
@@ -214,39 +215,44 @@ int getMove(const int *const player,
             int Move = point2num((Point){ i, j });
             if (validate_input(Move, GameBoard) == ERR_NONE)
             {
-                int newScore =
-                    new_squares_score(Move, currPlayer, GameBoard, 0);
                 GameBoard[Move] = currPlayer;
-                if (!isMaximizing) newScore = -newScore;
+                int deltaScore =
+                    new_squares_score(Move, currPlayer, GameBoard, 0);
+                deltaScore = (deltaScore)*isMaximizing;
                 int tempScore = getMove(
-                    player, GameBoard, depth + 1, score + newScore,
+                    player, GameBoard, depth + 1, score + deltaScore,
                     (currPlayer == BLUE) ? RED : BLUE, BestMove, alpha, beta);
 
-                if (isMaximizing)
+                if (isMaximizing == 1)
                 {
-                    if (tempScore >= score)
+                    if (tempScore > bestScore)
                     {
-                        score = tempScore;
+                        bestScore = tempScore;
                         if (depth == 0) *BestMove = Move;
                     }
-                    if (score > alpha) alpha = score;
+                    if (bestScore > alpha) alpha = bestScore;
                 }
                 else
                 {
-                    if (tempScore <= score)
+                    if (tempScore < bestScore)
                     {
-                        score = tempScore;
+                        bestScore = tempScore;
                         if (depth == 0) *BestMove = Move;
                     }
-                    if (score < beta) beta = score;
+                    if (bestScore < beta) beta = bestScore;
                 }
+
                 GameBoard[Move] = EMPTY;
-                if (alpha >= beta) return score;
+                if (alpha >= beta)
+                {
+                    if (isMaximizing == 1) return alpha;
+                    else return beta;
+                }
             }
         }
     }
 
-    return score;
+    return bestScore;
 }
 
 int ai_player(int player, const int *board)
@@ -258,7 +264,8 @@ int ai_player(int player, const int *board)
                 board[point2num((Point){ i, j })];
 
     int BestMove = -1;
-    getMove(&player, GameBoard, 0, 0, player, &BestMove, -1000000, 1000000);
+    getMove(&player, GameBoard, 0, 0, player, &BestMove, 0x80000000,
+            0x7fffffff);
 
     return BestMove;
 }

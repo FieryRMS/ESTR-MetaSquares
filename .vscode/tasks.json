@@ -6,7 +6,7 @@
         {
             "label": "test",
             "type": "shell",
-            "command": "./.exes/${fileBasenameNoExtension}.exe",
+            "command": "./.exes/basic.exe",
             "group": {
                 "kind": "test",
                 "isDefault": true
