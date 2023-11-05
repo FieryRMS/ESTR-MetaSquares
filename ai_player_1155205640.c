@@ -39,6 +39,37 @@ int min(int a, int b)
     return a < b ? a : b;
 }
 
+#ifdef R_LOCAL
+
+void printBoard(const int GameBoard[])
+{
+    printf("   1 2 3 4 5 6 7 8\n");
+    for (int i = 1; i <= 8; i++)
+    {
+        printf("%d  ", i);
+        for (int j = 1; j <= 8; j++)
+        {
+            switch (GameBoard[point2num((Point){ i, j })])
+            {
+                case EMPTY:
+                    printf(". ");
+                    break;
+                case BLUE:
+                    printf("# ");
+                    break;
+                case RED:
+                    printf("0 ");
+                    break;
+            };
+        }
+        printf("\n");
+    }
+}
+
+#else
+void PrintBoard(const int GameBoard[]) {}
+#endif
+
 /**
  * Function #4: Check if a location is valid.
  */
@@ -75,16 +106,19 @@ void get_squares(const Point p1,
 void register_square(const Square sq,
                      char done[],
                      const int score,
-                     const int Player)
+                     const int Player,
+                     int ShouldPrint)
 {
     int num[4] = { point2num(sq.p1), point2num(sq.p2), point2num(sq.p3),
                    point2num(sq.p4) };
     for (int i = 0; i < 4; i++) done[num[i]] = 1;
 
-    printf(
-        "%s gains %d more points by formulating the squre {%d, %d, "
-        "%d, %d}\n",
-        Player == BLUE ? "BLUE" : "RED", score, num[0], num[1], num[2], num[3]);
+    if (ShouldPrint)
+        printf(
+            "%s gains %d more points by formulating the squre {%d, %d, "
+            "%d, %d}\n",
+            Player == BLUE ? "BLUE" : "RED", score, num[0], num[1], num[2],
+            num[3]);
 }
 /**
  * validates and returns possible score
@@ -122,7 +156,10 @@ int validate_square(const Square sq,
 /**
  * Function #5: Check if new squares are formed
  */
-int new_squares_score(const int Move, const int Player, const int GameBoard[])
+int new_squares_score(const int Move,
+                      const int Player,
+                      const int GameBoard[],
+                      int ShouldPrint)
 {
     Point MovePoint = num2point(Move);
     char done[89] = { 0 };
@@ -141,8 +178,10 @@ int new_squares_score(const int Move, const int Player, const int GameBoard[])
                 int score1 = validate_square(sq1, Player, GameBoard, done),
                     score2 = validate_square(sq2, Player, GameBoard, done);
 
-                if (score1) register_square(sq1, done, score1, Player);
-                if (score2) register_square(sq2, done, score2, Player);
+                if (score1)
+                    register_square(sq1, done, score1, Player, ShouldPrint);
+                if (score2)
+                    register_square(sq2, done, score2, Player, ShouldPrint);
 
                 total_score += score1 + score2;
             }
@@ -175,7 +214,8 @@ int getMove(const int *const player,
             int Move = point2num((Point){ i, j });
             if (validate_input(Move, GameBoard) == ERR_NONE)
             {
-                int newScore = new_squares_score(Move, currPlayer, GameBoard);
+                int newScore =
+                    new_squares_score(Move, currPlayer, GameBoard, 0);
                 GameBoard[Move] = currPlayer;
                 if (!isMaximizing) newScore = -newScore;
                 int tempScore = getMove(

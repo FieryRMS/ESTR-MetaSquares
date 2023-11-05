@@ -126,21 +126,21 @@ int is_game_over(const int GameBoard[], const int RedScore, const int BlueScore)
 {
     if (BlueScore - RedScore >= 15 && BlueScore > 150)
     {
-        printf("Game over\nBlue wins!");
+        printf("Game over\nblue wins!\n");
         return 1;
     }
     if (RedScore - BlueScore >= 15 && RedScore > 150)
     {
-        printf("Game over\nRed wins!");
+        printf("Game over\nred wins!\n");
         return 1;
     }
     for (int i = 1; i <= 8; i++)
         for (int j = 1; j <= 8; j++)
             if (GameBoard[point2num((Point){ i, j })] == EMPTY) return 0;
 
-    if (BlueScore == RedScore) printf("Game over\nDraw!");
-    else if (BlueScore > RedScore) printf("Game over\nBlue wins!");
-    else printf("Game over\nRed wins!");
+    if (BlueScore == RedScore) printf("Game over\nDraw!\n");
+    else if (BlueScore > RedScore) printf("Game over\nblue wins!\n");
+    else printf("Game over\nred wins!\n");
     return 1;
 }
 
@@ -156,7 +156,7 @@ int main()
         if (GameMode == 2 && Player == RED) Move = ai_player(Player, GameBoard);
         else Move = input_move(Player, GameBoard);
         make_move(Move, Player, GameBoard);
-        int score = new_squares_score(Move, Player, GameBoard);
+        int score = new_squares_score(Move, Player, GameBoard, 1);
         if (Player == BLUE) BlueScore += score;
         else RedScore += score;
         Player = Player == BLUE ? RED : BLUE;

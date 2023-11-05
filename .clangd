@@ -1,11 +1,8 @@
-
 CompileFlags:
     Compiler: C:/TDM-GCC-64/bin/gcc.exe
-
+    Add: ["-DR_LOCAL"]
 ---
-
 If:
     PathMatch: .*\.cpp
 CompileFlags:
     Compiler: C:/TDM-GCC-64/bin/g++.exe
-    Add: [-isystem, "C:/TDM-GCC-64/lib/gcc/x86_64-w64-mingw32/10.3.0/include/c++"]
