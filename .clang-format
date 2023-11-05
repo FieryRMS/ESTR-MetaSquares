@@ -1,0 +1,19 @@
+BasedOnStyle: Chromium
+IndentWidth: 4
+DerivePointerAlignment: false
+PointerAlignment: Right
+BreakBeforeBraces: Custom
+BraceWrapping:
+    AfterClass: false
+    AfterControlStatement: true
+    AfterStruct: false
+    AfterFunction: true
+    BeforeCatch: true
+    BeforeElse: true
+    SplitEmptyFunction: false
+AlignOperands: Align
+AllowShortBlocksOnASingleLine: Always
+AllowShortIfStatementsOnASingleLine: AllIfsAndElse
+Cpp11BracedListStyle: false
+AllowShortLoopsOnASingleLine: true
+BreakArrays: true
