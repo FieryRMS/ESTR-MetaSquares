@@ -28,7 +28,7 @@
                 ".exes",
                 ";",
                 "time",
-                "g++",
+                "gcc",
                 "-Wall",
                 "-fexceptions",
                 "-Wshadow",
