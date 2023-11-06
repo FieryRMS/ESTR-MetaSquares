@@ -26,10 +26,6 @@ int point2num(Point Move)
     return Move.x * 10 + Move.y;
 }
 
-int eq_point(Point a, Point b)
-{
-    return a.x == b.x && a.y == b.y;
-}
 int max(int a, int b)
 {
     return a > b ? a : b;
@@ -99,30 +95,23 @@ int validate_input(const int Move, const int GameBoard[])
 /**
  * given two points, get two squares
  */
-void get_squares(const Point p1,
-                 const Point p2,
-                 Square *const sq1,
-                 Square *const sq2)
+Square get_square(const Point p1, const Point p2)
 {
-    int dx = p1.x - p2.x, dy = p1.y - p2.y;
-    *sq1 =
-        (Square){ { p1.x + dy, p1.y - dx }, { p2.x + dy, p2.y - dx }, p2, p1 };
-    *sq2 =
-        (Square){ { p1.x - dy, p1.y + dx }, { p2.x - dy, p2.y + dx }, p2, p1 };
+    int dx = (p1.x - p2.x), dy = (p1.y - p2.y);
+    return (
+        Square){ { p1.x + dy, p1.y - dx }, { p2.x + dy, p2.y - dx }, p2, p1 };
 }
 
 /**
  * prints the square and registers it in done[]
  */
 void register_square(const Square sq,
-                     char done[],
                      const ll score,
                      const int Player,
                      int ShouldPrint)
 {
     int num[4] = { point2num(sq.p1), point2num(sq.p2), point2num(sq.p3),
                    point2num(sq.p4) };
-    for (int i = 0; i < 4; i++) done[num[i]] = 1;
 
     if (ShouldPrint)
         printf(
@@ -134,10 +123,7 @@ void register_square(const Square sq,
 /**
  * validates and returns possible score
  */
-int validate_square(const Square sq,
-                    const int Player,
-                    const int GameBoard[],
-                    const char done[])
+int validate_square(const Square sq, const int Player, const int GameBoard[])
 {
     int p1num = point2num(sq.p1), p2num = point2num(sq.p2),
         p3num = point2num(sq.p3), p4num = point2num(sq.p4);
@@ -149,13 +135,7 @@ int validate_square(const Square sq,
         GameBoard[p1num] == Player &&
         GameBoard[p2num] == Player &&
         GameBoard[p3num] == Player && 
-        GameBoard[p4num] == Player && 
-        (
-            !done[p1num] ||
-            !done[p2num] ||
-            !done[p3num] ||
-            !done[p4num]
-        )
+        GameBoard[p4num] == Player
     )  // clang-format on
     {
         int mxRow = max(abs(sq.p3.y - sq.p1.y), abs(sq.p4.y - sq.p2.y)) + 1;
@@ -170,31 +150,21 @@ int validate_square(const Square sq,
 int new_squares_score(const int Move,
                       const int Player,
                       const int GameBoard[],
-                      int ShouldPrint)
+                      int ShouldPrint,
+                      Point PointList[],
+                      int PointCnt)
 {
     Point MovePoint = num2point(Move);
-    char done[89] = { 0 };
     ll total_score = 0;
-    for (int i = 1; i <= 8; i++)
-        for (int j = 1; j <= 8; j++)
-        {
-            Point CurrPoint = (Point){ i, j };
-            if (GameBoard[point2num(CurrPoint)] == Player &&
-                !eq_point(CurrPoint, MovePoint))
-            {
-                Square sq1, sq2;
-                get_squares(MovePoint, CurrPoint, &sq1, &sq2);
-                ll score1 = validate_square(sq1, Player, GameBoard, done),
-                   score2 = validate_square(sq2, Player, GameBoard, done);
+    for (int j = 0; j < PointCnt - 1; j++)
+    {
+        Square sq1 = get_square(MovePoint, PointList[j]);
+        ll score1 = validate_square(sq1, Player, GameBoard);
 
-                if (score1)
-                    register_square(sq1, done, score1, Player, ShouldPrint);
-                if (score2)
-                    register_square(sq2, done, score2, Player, ShouldPrint);
+        if (score1) register_square(sq1, score1, Player, ShouldPrint);
 
-                total_score += score1 + score2;
-            }
-        }
+        total_score += score1;
+    }
 
     return total_score;
 }
@@ -227,7 +197,9 @@ ll getMove(const int player,
            int *BestMove,
            ll alpha,
            ll beta,
-           int maxDepth)
+           int maxDepth,
+           Point PointList[2][64],
+           int PointCnt[2])
 {
     int isMaximizing = (player == currPlayer ? 1 : -1);
     ll bestScore = LLONG_MAX * (-1 * isMaximizing);
@@ -246,14 +218,17 @@ ll getMove(const int player,
             if (validate_input(Move, GameBoard) == ERR_NONE)
             {
                 GameBoard[Move] = currPlayer;
-                ll deltaScore =
-                    new_squares_score(Move, currPlayer, GameBoard, 0);
+                PointList[currPlayer - 1][PointCnt[currPlayer - 1]++] =
+                    (Point){ i, j };
+                ll deltaScore = new_squares_score(Move, currPlayer, GameBoard,
+                                                  0, PointList[currPlayer - 1],
+                                                  PointCnt[currPlayer - 1]);
                 deltaScore = deltaScore * isMaximizing * 10;
                 if (deltaScore) deltaScore -= depth * isMaximizing;
                 ll tempScore =
                     getMove(player, GameBoard, depth + 1, score + deltaScore,
                             (currPlayer == BLUE) ? RED : BLUE, BestMove, alpha,
-                            beta, maxDepth);
+                            beta, maxDepth, PointList, PointCnt);
 
                 if (isMaximizing == 1)
                 {
@@ -275,6 +250,7 @@ ll getMove(const int player,
                 }
 
                 GameBoard[Move] = EMPTY;
+                PointCnt[currPlayer - 1]--;
                 if (alpha >= beta)
                 {
                     if (isMaximizing == 1) return alpha;
@@ -289,20 +265,32 @@ ll getMove(const int player,
 
 int ai_player(int player, const int *board)
 {
-    int GameBoard[89], empty = 0;
+    int GameBoard[89], empty = 0, PointCnt[2] = { 0 };
+    Point PointList[2][64];
     for (int i = 1; i <= 8; i++)
         for (int j = 1; j <= 8; j++)
         {
             GameBoard[point2num((Point){ i, j })] =
                 board[point2num((Point){ i, j })];
-            if (board[point2num((Point){ i, j })] == EMPTY) empty++;
+            switch (board[point2num((Point){ i, j })])
+            {
+                case EMPTY:
+                    empty++;
+                    break;
+                case BLUE:
+                    PointList[0][PointCnt[0]++] = (Point){ i, j };
+                    break;
+                case RED:
+                    PointList[1][PointCnt[1]++] = (Point){ i, j };
+                    break;
+            }
         }
 
-    int BestMove = -1, maxDepth = 5;
+    int BestMove = -1, maxDepth = 6;
     if (empty == 0) return 0;
 
     getMove(player, GameBoard, 0, 0, player, &BestMove, LLONG_MIN, LLONG_MAX,
-            maxDepth);
+            maxDepth, PointList, PointCnt);
 
     return BestMove;
 }

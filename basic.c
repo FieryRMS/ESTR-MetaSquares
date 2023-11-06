@@ -27,7 +27,11 @@
 enum { EMPTY, BLUE, RED, DRAW };
 enum { ERR_NONE, ERR_OUT_OF_BOUND, ERR_OCCUPIED };
 
-void make_move(const int Move, const int Player, int GameBoard[])
+void make_move(const int Move,
+               const int Player,
+               int GameBoard[],
+               Point PointList[2][64],
+               int PointCnt[2])
 {
     if (validate_input(Move, GameBoard) != ERR_NONE)
     {
@@ -39,21 +43,28 @@ void make_move(const int Move, const int Player, int GameBoard[])
     {
         printf("BLUE moves to %d\n", Move);
         GameBoard[Move] = BLUE;
+        PointList[0][PointCnt[0]++] = num2point(Move);
     }
     else
     {
         printf("RED moves to %d\n", Move);
         GameBoard[Move] = RED;
+        PointList[1][PointCnt[1]++] = num2point(Move);
     }
 }
 /**
  *  Function #1: Initialize the game board
  */
-void init(int GameBoard[], int *RedScore, int *BlueScore, int *Player)
+void init(int GameBoard[],
+          int *RedScore,
+          int *BlueScore,
+          int *Player,
+          int PointCnt[2])
 {
     for (int i = 1; i < 9; i++)
         for (int j = 1; j < 9; j++)
             GameBoard[point2num((Point){ i, j })] = EMPTY;
+    PointCnt[0] = PointCnt[1] = 0;
     *RedScore = 0;
     *BlueScore = 0;
     *Player = BLUE;
@@ -122,8 +133,11 @@ int input_move(const int Player, const int GameBoard[])
 
 int main()
 {
-    int GameBoard[89], RedScore, BlueScore, Player, GameMode;
-    init(GameBoard, &RedScore, &BlueScore, &Player);
+    int GameBoard[89], RedScore, BlueScore, Player, GameMode,
+        PointCnt[2] = { 0 };
+    Point PointList[2][64];
+
+    init(GameBoard, &RedScore, &BlueScore, &Player, PointCnt);
     printf("Choose the game mode: ");
     scanf("%d", &GameMode);
     int gameState = 0;
@@ -132,8 +146,10 @@ int main()
         int Move;
         if (GameMode == 2 && Player == RED) Move = ai_player(Player, GameBoard);
         else Move = input_move(Player, GameBoard);
-        make_move(Move, Player, GameBoard);
-        int score = new_squares_score(Move, Player, GameBoard, 1);
+        make_move(Move, Player, GameBoard, PointList, PointCnt);
+        int score =
+            new_squares_score(Move, Player, GameBoard, 1, PointList[Player - 1],
+                              PointCnt[Player - 1]);
         if (Player == BLUE) BlueScore += score;
         else RedScore += score;
         Player = Player == BLUE ? RED : BLUE;
