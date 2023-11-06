@@ -43,4 +43,11 @@ int validate_square(const Square sq,
                     const int GameBoard[],
                     const char done[]);
 
-int new_squares_score(const int Move, const int Player, const int GameBoard[], int ShouldPrint);
+int new_squares_score(const int Move,
+                      const int Player,
+                      const int GameBoard[],
+                      int ShouldPrint);
+
+int is_game_over(const int GameBoard[],
+                 const int RedScore,
+                 const int BlueScore);

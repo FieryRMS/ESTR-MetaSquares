@@ -24,7 +24,7 @@
 #include <stdlib.h>
 #include "ai_player_1155205640.h"
 
-enum { EMPTY, BLUE, RED };
+enum { EMPTY, BLUE, RED, DRAW };
 enum { ERR_NONE, ERR_OUT_OF_BOUND, ERR_OCCUPIED };
 
 void make_move(const int Move, const int Player, int GameBoard[])
@@ -119,30 +119,6 @@ int input_move(const int Player, const int GameBoard[])
         }
     } while (1);
 }
-/**
- * Function #6: Check if the game is over.
- */
-int is_game_over(const int GameBoard[], const int RedScore, const int BlueScore)
-{
-    if (BlueScore - RedScore >= 15 && BlueScore > 150)
-    {
-        printf("Game over\nblue wins!\n");
-        return 1;
-    }
-    if (RedScore - BlueScore >= 15 && RedScore > 150)
-    {
-        printf("Game over\nred wins!\n");
-        return 1;
-    }
-    for (int i = 1; i <= 8; i++)
-        for (int j = 1; j <= 8; j++)
-            if (GameBoard[point2num((Point){ i, j })] == EMPTY) return 0;
-
-    if (BlueScore == RedScore) printf("Game over\nDraw!\n");
-    else if (BlueScore > RedScore) printf("Game over\nblue wins!\n");
-    else printf("Game over\nred wins!\n");
-    return 1;
-}
 
 int main()
 {
@@ -150,6 +126,7 @@ int main()
     init(GameBoard, &RedScore, &BlueScore, &Player);
     printf("Choose the game mode: ");
     scanf("%d", &GameMode);
+    int gameState = 0;
     printUI(GameBoard, RedScore, BlueScore, Player);
     do {
         int Move;
@@ -161,5 +138,9 @@ int main()
         else RedScore += score;
         Player = Player == BLUE ? RED : BLUE;
         printUI(GameBoard, RedScore, BlueScore, Player);
-    } while (!is_game_over(GameBoard, RedScore, BlueScore));
+    } while (!(gameState = is_game_over(GameBoard, RedScore, BlueScore)));
+
+    if (gameState == BLUE) printf("Game over\nblue wins!\n");
+    else if (gameState == RED) printf("Game over\nred wins!\n");
+    else printf("Game over\nDraw!\n");
 }

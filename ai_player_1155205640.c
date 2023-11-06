@@ -1,8 +1,7 @@
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#define MAXDEPTH 7
 
 typedef struct {
     int x, y;
@@ -12,7 +11,7 @@ typedef struct {
     Point p1, p2, p3, p4;
 } Square;
 
-enum { EMPTY, BLUE, RED };
+enum { EMPTY, BLUE, RED, DRAW };
 enum { ERR_NONE, ERR_OUT_OF_BOUND, ERR_OCCUPIED };
 
 Point num2point(int Move)
@@ -190,23 +189,45 @@ int new_squares_score(const int Move,
     return total_score;
 }
 
+/**
+ * Function #6: Check if the game is over.
+ */
+int is_game_over(const int GameBoard[], const int RedScore, const int BlueScore)
+{
+    if (BlueScore - RedScore >= 15 && BlueScore > 150) return BLUE;
+    if (RedScore - BlueScore >= 15 && RedScore > 150) return RED;
+    for (int i = 1; i <= 8; i++)
+        for (int j = 1; j <= 8; j++)
+            if (GameBoard[point2num((Point){ i, j })] == EMPTY) return 0;
+
+    if (BlueScore == RedScore) return DRAW;
+    else if (BlueScore > RedScore) return BLUE;
+    else return RED;
+}
+
 // ideas
 // 1. minimax
 // 2. alpha-beta pruning
 // 3. prefer lattice structure
-int getMove(const int *const player,
+int getMove(const int player,
             int GameBoard[],
             int depth,
             int score,
             int currPlayer,
             int *BestMove,
             int alpha,
-            int beta)
+            int beta,
+            int maxDepth)
 {
-    int isMaximizing = (*player == currPlayer ? 1 : -1),
+    int isMaximizing = (player == currPlayer ? 1 : -1),
         bestScore = isMaximizing == 1 ? 0x80000000 : 0x7fffffff;
 
-    if (depth == MAXDEPTH) return score;
+    int GameState = is_game_over(GameBoard, score, score);
+    if (GameState == player) return 0x7fffffff;
+    else if (GameState == DRAW) return score;
+    else if (GameState) return 0x80000000;
+
+    if (depth == maxDepth) return score;
 
     for (int i = 1; i <= 8; i++)
     {
@@ -218,10 +239,11 @@ int getMove(const int *const player,
                 GameBoard[Move] = currPlayer;
                 int deltaScore =
                     new_squares_score(Move, currPlayer, GameBoard, 0);
-                deltaScore = (deltaScore)*isMaximizing;
-                int tempScore = getMove(
-                    player, GameBoard, depth + 1, score + deltaScore,
-                    (currPlayer == BLUE) ? RED : BLUE, BestMove, alpha, beta);
+                deltaScore = deltaScore * isMaximizing * 10;
+                int tempScore =
+                    getMove(player, GameBoard, depth + 1, score + deltaScore,
+                            (currPlayer == BLUE) ? RED : BLUE, BestMove, alpha,
+                            beta, maxDepth);
 
                 if (isMaximizing == 1)
                 {
@@ -257,15 +279,20 @@ int getMove(const int *const player,
 
 int ai_player(int player, const int *board)
 {
-    int GameBoard[89];
+    int GameBoard[89], empty = 0;
     for (int i = 1; i <= 8; i++)
         for (int j = 1; j <= 8; j++)
+        {
             GameBoard[point2num((Point){ i, j })] =
                 board[point2num((Point){ i, j })];
+            if (board[point2num((Point){ i, j })] == EMPTY) empty++;
+        }
 
-    int BestMove = -1;
-    getMove(&player, GameBoard, 0, 0, player, &BestMove, 0x80000000,
-            0x7fffffff);
+    int BestMove = -1, maxDepth = 6;
+    if (empty == 0) return 0;
+
+    getMove(player, GameBoard, 0, 0, player, &BestMove, 0x80000000, 0x7fffffff,
+            maxDepth);
 
     return BestMove;
 }
