@@ -154,7 +154,7 @@ int main()
         else RedScore += score;
         Player = Player == BLUE ? RED : BLUE;
         printUI(GameBoard, RedScore, BlueScore, Player);
-    } while (!(gameState = is_game_over(GameBoard, RedScore, BlueScore)));
+    } while (!(gameState = is_game_over(GameBoard, BlueScore, RedScore)));
 
     if (gameState == BLUE) printf("Game over\nblue wins!\n");
     else if (gameState == RED) printf("Game over\nred wins!\n");

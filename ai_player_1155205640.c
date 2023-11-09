@@ -92,9 +92,9 @@ int min(int a, int b)
 {
     return a < b ? a : b;
 }
-int debug = 0;
 
 #ifdef R_LOCAL
+int debug = 1;
 
 void printBoard(const int GameBoard[])
 {
@@ -130,6 +130,7 @@ void printBoard(const int GameBoard[])
     } while (0)
 
 #else
+int debug = 0;
 void PrintBoard(const int GameBoard[]) {}
 #define DEBUG(...)
 #endif
@@ -229,7 +230,7 @@ int new_squares_score(const int Move,
 /**
  * Function #6: Check if the game is over.
  */
-int is_game_over(const int GameBoard[], const ll RedScore, const ll BlueScore)
+int is_game_over(const int GameBoard[], const ll BlueScore, const ll RedScore)
 {
     if (BlueScore - RedScore >= 15 && BlueScore > 150) return BLUE;
     if (RedScore - BlueScore >= 15 && RedScore > 150) return RED;
@@ -349,7 +350,8 @@ ll getMove(const int player,
            ll beta,
            int maxDepth,
            Point PointList[2][64],
-           int PointCnt[2])
+           int PointCnt[2],
+           int BestSequence[64])
 {
     int isMaximizing = (player == currPlayer ? 1 : -1);
     ll bestScore = LLONG_MAX * (-1 * isMaximizing);
@@ -375,16 +377,22 @@ ll getMove(const int player,
                                                   PointCnt[currPlayer - 1]);
                 deltaScore = deltaScore * isMaximizing * 10;
                 if (deltaScore) deltaScore -= depth * isMaximizing;
+
+                int BestSequenceRet[64];
+
                 ll tempScore =
                     getMove(player, GameBoard, depth + 1, score + deltaScore,
                             (currPlayer == BLUE) ? RED : BLUE, BestMove, alpha,
-                            beta, maxDepth, PointList, PointCnt);
+                            beta, maxDepth, PointList, PointCnt, BestSequenceRet);
 
                 if (isMaximizing == 1)
                 {
                     if (tempScore > bestScore)
                     {
                         bestScore = tempScore;
+                        BestSequence[depth] = Move;
+                        for (int k = depth + 1; k < maxDepth; k++)
+                            BestSequence[k] = BestSequenceRet[k];
                         if (depth == 0) *BestMove = Move;
                     }
                     if (bestScore > alpha) alpha = bestScore;
@@ -394,6 +402,9 @@ ll getMove(const int player,
                     if (tempScore < bestScore)
                     {
                         bestScore = tempScore;
+                        BestSequence[depth] = Move;
+                        for (int k = depth + 1; k < maxDepth; k++)
+                            BestSequence[k] = BestSequenceRet[k];
                         if (depth == 0) *BestMove = Move;
                     }
                     if (bestScore < beta) beta = bestScore;
@@ -432,11 +443,18 @@ int ai_player(int player, const int *board)
             }
         }
 
-    int BestMove = -1, maxDepth = 6;
+    int BestMove = -1, maxDepth = 6, BestSequence[64] = { 0 };
     if (empty == 0) return 0;
 
     getMove(player, GameBoard, 0, 0, player, &BestMove, LLONG_MIN, LLONG_MAX,
-            maxDepth, PointList, PointCnt);
+            maxDepth, PointList, PointCnt, BestSequence);
+
+    if (debug)
+    {
+        printf("Move sequence: ");
+        for (int i = 0; i < maxDepth; i++) printf("%d ", BestSequence[i]);
+        printf("\n");
+    }
 
     return BestMove;
 }
