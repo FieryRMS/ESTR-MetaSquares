@@ -4,6 +4,63 @@
 #include <stdlib.h>
 #include <string.h>
 
+// clang-format off
+const int DATA [5][8][8] = {
+    {
+        {  1,   0,   1,   0,   1,   0,   1,   0},
+        {  0,   1,   0,   1,   0,   0,   0,   0},
+        {  1,   0,   1,   0,   1,   0,   1,   0},
+        {  0,   1,   0,   1,   0,   0,   0,   1},
+        {  1,   0,   1,   0,   1,   0,   1,   0},
+        {  0,   0,   0,   0,   0,   0,   0,   1},
+        {  1,   0,   1,   0,   1,   0,   1,   0},
+        {  0,   0,   0,   1,   0,   1,   0,   0}
+    },
+    {
+        {  7,  13,  17,  19,  19,  17,  13,   7},
+        { 13,  19,  23,  25,  25,  23,  19,  13},
+        { 17,  23,  27,  29,  29,  27,  23,  17},
+        { 19,  25,  29,  31,  31,  29,  25,  19},
+        { 19,  25,  29,  31,  31,  29,  25,  19},
+        { 17,  23,  27,  29,  29,  27,  23,  17},
+        { 13,  19,  23,  25,  25,  23,  19,  13},
+        {  7,  13,  17,  19,  19,  17,  13,   7}
+    },
+    {
+        {203, 342, 428, 469, 469, 428, 342, 203},
+        {342, 421, 467, 488, 488, 467, 421, 342},
+        {428, 467, 473, 474, 474, 473, 467, 428},
+        {469, 488, 474, 455, 455, 474, 488, 469},
+        {469, 488, 474, 455, 455, 474, 488, 469},
+        {428, 467, 473, 474, 474, 473, 467, 428},
+        {342, 421, 467, 488, 488, 467, 421, 342},
+        {203, 342, 428, 469, 469, 428, 342, 203}
+    },
+    {
+        {  3,   0,   6,   0,   6,   0,   5,   0},
+        {  0,   5,   0,   5,   0,   0,   0,   0},
+        {  6,   0,  11,   0,   8,   0,   7,   0},
+        {  0,   5,   0,   5,   0,   0,   0,   2},
+        {  6,   0,   8,   0,   9,   0,   7,   0},
+        {  0,   0,   0,   0,   0,   0,   0,   2},
+        {  5,   0,   7,   0,   7,   0,   3,   0},
+        {  0,   0,   0,   2,   0,   2,   0,   0}
+    },
+    {
+        { 83,   0, 126,   0, 166,   0, 157,   0},
+        {  0, 125,   0, 101,   0,   0,   0,   0},
+        {126,   0, 147,   0, 120,   0, 191,   0},
+        {  0, 101,   0,  77,   0,   0,   0,  74},
+        {166,   0, 120,   0, 161,   0, 191,   0},
+        {  0,   0,   0,   0,   0,   0,   0,  74},
+        {157,   0, 191,   0, 191,   0,  83,   0},
+        {  0,   0,   0,  74,   0,  74,   0,   0}
+    }
+};
+//clang-format on
+
+double weights[5+4+2] = {1,1,1,1,1, 1, 1,1,1,6,64};
+
 typedef long long ll;
 typedef struct {
     int x, y;
@@ -185,10 +242,103 @@ int is_game_over(const int GameBoard[], const ll RedScore, const ll BlueScore)
     else return RED;
 }
 
+void CalculateExistingData(const Point PointList[64],
+                           const int PointCnt,
+                           int BoardData[2][8][8],
+                           const int GameBoard[],
+                           const int player)
+{
+    for (int i = 0; i < PointCnt - 1; i++)
+    {
+        for (int j = i + 1; j < PointCnt; j++)
+        {
+            Point a = PointList[i], b = PointList[j];
+            if (a.x > b.x || (a.x == b.x && a.y > b.y))
+            {
+                Point temp = a;
+                a = b;
+                b = temp;
+            }
+            if (a.y >= b.y) continue;
+            int dx = abs(a.x - b.x), dy = abs(a.y - b.y);
+            Point c = { a.x + dy, a.y - dx }, d = { b.x + dy, b.y - dx };
+            int mxRow = max(abs(c.y - b.y), abs(d.y - a.y)) + 1;
+            mxRow *= mxRow;
+            int validateC = validate_input(point2num(c), GameBoard),
+                validateD = validate_input(point2num(d), GameBoard);
+            if (validateC == ERR_NONE && validateD == ERR_NONE)
+            {
+                BoardData[(player - 1) * 2][c.x - 1][c.y - 1] = 1;
+                BoardData[(player - 1) * 2][d.x - 1][d.y - 1] = 1;
+                BoardData[(player - 1) * 2 + 1][c.x - 1][c.y - 1] = mxRow;
+                BoardData[(player - 1) * 2 + 1][d.x - 1][d.y - 1] = mxRow;
+            }
+            else if (validateC != ERR_OUT_OF_BOUND &&
+                     validateD != ERR_OUT_OF_BOUND)
+            {
+                BoardData[(player - 1) * 2][c.x - 1][c.y - 1] = 2;
+                BoardData[(player - 1) * 2][d.x - 1][d.y - 1] = 2;
+                BoardData[(player - 1) * 2 + 1][c.x - 1][c.y - 1] = mxRow;
+                BoardData[(player - 1) * 2 + 1][d.x - 1][d.y - 1] = mxRow;
+            }
+        }
+    }
+}
+
+typedef struct {
+    int index;
+    long double value;
+} IndexValue;
+
+int compareHeuristic(const void *a, const void *b)
+{
+    IndexValue *ia = (IndexValue *)a, *ib = (IndexValue *)b;
+    return (int)(ia->value - ib->value);
+}
+void calculate_heuristics(const int player,
+                          const int GameBoard[],
+                          const Point PointList[2][64],
+                          const int PointCnt[2],
+                          int SearchPointList[64])
+{
+    int BoardData[4][8][8] = { 0 };
+    CalculateExistingData(PointList[0], PointCnt[0], BoardData, GameBoard,
+                          BLUE);
+    CalculateExistingData(PointList[1], PointCnt[1], BoardData, GameBoard, RED);
+    IndexValue HeuristicPointList[64];
+    int HeuristicPointListCnt = 0;
+    for (int i = 0; i < 8; i++)
+        for (int j = 0; j < 8; j++)
+        {
+            if (validate_input(point2num((Point){ i + 1, j + 1 }), GameBoard) ==
+                ERR_NONE)
+                HeuristicPointList[HeuristicPointListCnt].index =
+                    point2num((Point){ i + 1, j + 1 });
+            for (int k = 0; k < 5; k++)
+                HeuristicPointList[HeuristicPointListCnt].value +=
+                    weights[k] * DATA[k][i][j];
+
+            for (int k = 0; k < 4; k++)
+                HeuristicPointList[HeuristicPointListCnt].value +=
+                    weights[5 + k] * BoardData[k][i][j];
+
+            HeuristicPointListCnt++;
+        }
+
+    qsort(HeuristicPointList, HeuristicPointListCnt, sizeof(IndexValue),
+          compareHeuristic);
+
+    for (int i = 0; i < HeuristicPointListCnt; i++)
+        SearchPointList[i] = HeuristicPointList[i].index;
+}
+
 // ideas
 // 1. minimax
 // 2. alpha-beta pruning
 // 3. prefer lattice structure
+// 4. use heuristics
+// 5. program a genetic algorithm to find the best weights
+// 6. use depth and search limit as weights
 ll getMove(const int player,
            int GameBoard[],
            int depth,
@@ -251,11 +401,7 @@ ll getMove(const int player,
 
                 GameBoard[Move] = EMPTY;
                 PointCnt[currPlayer - 1]--;
-                if (alpha >= beta)
-                {
-                    if (isMaximizing == 1) return alpha;
-                    else return beta;
-                }
+                if (alpha >= beta) return bestScore;
             }
         }
     }
@@ -293,4 +439,10 @@ int ai_player(int player, const int *board)
             maxDepth, PointList, PointCnt);
 
     return BestMove;
+}
+
+int weighted_ai_player(int player, const int *board, double test_weights[])
+{
+    memcpy(weights, test_weights, sizeof(weights));
+    return ai_player(player, board);
 }
