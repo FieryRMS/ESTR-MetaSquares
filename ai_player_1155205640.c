@@ -4,53 +4,21 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define DATASIZE 8
 // clang-format off
-#define DATASIZE 4
-const int DATA [DATASIZE][8][8] = {
-    {
-        {  7,  13,  17,  19,  19,  17,  13,   7},
-        { 13,  19,  23,  25,  25,  23,  19,  13},
-        { 17,  23,  27,  29,  29,  27,  23,  17},
-        { 19,  25,  29,  31,  31,  29,  25,  19},
-        { 19,  25,  29,  31,  31,  29,  25,  19},
-        { 17,  23,  27,  29,  29,  27,  23,  17},
-        { 13,  19,  23,  25,  25,  23,  19,  13},
-        {  7,  13,  17,  19,  19,  17,  13,   7}
-    },
-    {
-        {203, 342, 428, 469, 469, 428, 342, 203},
-        {342, 421, 467, 488, 488, 467, 421, 342},
-        {428, 467, 473, 474, 474, 473, 467, 428},
-        {469, 488, 474, 455, 455, 474, 488, 469},
-        {469, 488, 474, 455, 455, 474, 488, 469},
-        {428, 467, 473, 474, 474, 473, 467, 428},
-        {342, 421, 467, 488, 488, 467, 421, 342},
-        {203, 342, 428, 469, 469, 428, 342, 203}
-    },
-    {
-        {  3,   0,   6,   0,   6,   0,   5,   0},
-        {  0,   5,   0,   5,   0,   0,   0,   0},
-        {  6,   0,  11,   0,   8,   0,   7,   0},
-        {  0,   5,   0,   5,   0,   0,   0,   2},
-        {  6,   0,   8,   0,   9,   0,   7,   0},
-        {  0,   0,   0,   0,   0,   0,   0,   2},
-        {  5,   0,   7,   0,   7,   0,   3,   0},
-        {  0,   0,   0,   2,   0,   2,   0,   0}
-    },
-    {
-        { 83,   0, 126,   0, 166,   0, 157,   0},
-        {  0, 125,   0, 101,   0,   0,   0,   0},
-        {126,   0, 147,   0, 120,   0, 191,   0},
-        {  0, 101,   0,  77,   0,   0,   0,  74},
-        {166,   0, 120,   0, 161,   0, 191,   0},
-        {  0,   0,   0,   0,   0,   0,   0,  74},
-        {157,   0, 191,   0, 191,   0,  83,   0},
-        {  0,   0,   0,  74,   0,  74,   0,   0}
-    }
+const int TemplatePattern[8][8] = {
+    {  1,   0,   1,   0,   1,   0,   1,   0},
+    {  0,   1,   0,   1,   0,   0,   0,   0},
+    {  1,   0,   1,   0,   1,   0,   1,   0},
+    {  0,   1,   0,   1,   0,   0,   0,   1},
+    {  1,   0,   1,   0,   1,   0,   1,   0},
+    {  0,   0,   0,   0,   0,   0,   0,   1},
+    {  1,   0,   1,   0,   1,   0,   1,   0},
+    {  0,   0,   0,   1,   0,   1,   0,   0}
 };
 //clang-format on
 
-double weights[DATASIZE+4+2] = {1,1,1,1,1, 1, 1,1,1,6,64};
+double weights[DATASIZE+2] = {1,1,1,1, 1, 1,1,1,6,64};
 
 typedef long long ll;
 typedef struct {
@@ -234,17 +202,87 @@ int is_game_over(const int GameBoard[], const ll BlueScore, const ll RedScore)
     else return RED;
 }
 
-void CalculateExistingData(const Point PointList[64],
-                           const int PointCnt,
-                           int BoardData[2][8][8],
-                           const int GameBoard[],
+Point rotatePoint(Point p, int angle)
+{
+    switch (angle)
+    {
+        case 0:
+            return p;
+        case 1:
+        case 90:
+            return (Point){ 9 - p.y, p.x };
+        case 2:
+        case 180:
+            return (Point){ 9 - p.x, 9 - p.y };
+        case 3:
+        case -90:
+        case 270:
+            return (Point){ p.y, 9 - p.x };
+    }
+    return p;
+}
+
+int CalculateTemplatePatternData(int TemplatePatternData[4][2][8][8],
+                                 int TotalScore[4],
+                                 const int GameBoard[],
+                                 const int player,
+                                 Point a,
+                                 Point b,
+                                 Point c,
+                                 Point d,
+                                 int mxRow,
+                                 int bestIdx)
+{
+    int Opponent = (player == BLUE ? RED : BLUE);
+    int highest = TotalScore[bestIdx];
+    Point cpy[4] = { a, b, c, d };
+
+    if (GameBoard[point2num(a)] == Opponent ||
+        GameBoard[point2num(b)] == Opponent ||
+        GameBoard[point2num(c)] == Opponent ||
+        GameBoard[point2num(d)] == Opponent)
+        return bestIdx;
+
+    for (int i = 0; i < 4; i++)
+    {
+        if (TemplatePattern[a.x - 1][a.y - 1] &&
+            TemplatePattern[b.x - 1][b.y - 1] &&
+            TemplatePattern[c.x - 1][c.y - 1] &&
+            TemplatePattern[d.x - 1][d.y - 1])
+        {
+            for (int j = 0; j < 4; j++)
+                TemplatePatternData[i][0][cpy[j].x - 1][cpy[j].y - 1] += 1,
+                    TemplatePatternData[i][1][cpy[j].x - 1][cpy[j].y - 1] +=
+                    mxRow;
+
+            TotalScore[i] += mxRow;
+
+            if (TotalScore[i] > highest)
+            {
+                highest = TotalScore[i];
+                bestIdx = i;
+            }
+        }
+        a = rotatePoint(a, -90);
+        b = rotatePoint(b, -90);
+        c = rotatePoint(c, -90);
+        d = rotatePoint(d, -90);
+    }
+
+    return bestIdx;
+}
+
+void CalculatePossibleData(const int GameBoard[],
+                           int DATA[DATASIZE][8][8],
                            const int player)
 {
-    for (int i = 0; i < PointCnt - 1; i++)
-    {
-        for (int j = i + 1; j < PointCnt; j++)
+    int Opponent = (player == BLUE ? RED : BLUE);
+    int TemplatePatternData[4][2][8][8] = { 0 }, TotalScore[4] = { 0 };
+    int bestIdx = 0;
+    for (int i = 0; i < 64; i++)
+        for (int j = i + 1; j < 64; j++)
         {
-            Point a = PointList[i], b = PointList[j];
+            Point a = { i / 8 + 1, i % 8 + 1 }, b = { j / 8 + 1, j % 8 + 1 };
             if (a.x > b.x || (a.x == b.x && a.y > b.y))
             {
                 Point temp = a;
@@ -256,25 +294,84 @@ void CalculateExistingData(const Point PointList[64],
             Point c = { a.x + dy, a.y - dx }, d = { b.x + dy, b.y - dx };
             int mxRow = max(abs(c.y - b.y), abs(d.y - a.y)) + 1;
             mxRow *= mxRow;
-            int validateC = validate_input(point2num(c), GameBoard),
-                validateD = validate_input(point2num(d), GameBoard);
-            if (validateC == ERR_NONE && validateD == ERR_NONE)
+            if (validate_input(point2num(a), GameBoard) != ERR_OUT_OF_BOUND &&
+                validate_input(point2num(b), GameBoard) != ERR_OUT_OF_BOUND &&
+                validate_input(point2num(c), GameBoard) != ERR_OUT_OF_BOUND &&
+                validate_input(point2num(d), GameBoard) != ERR_OUT_OF_BOUND)
             {
-                BoardData[(player - 1) * 2][c.x - 1][c.y - 1] = 1;
-                BoardData[(player - 1) * 2][d.x - 1][d.y - 1] = 1;
-                BoardData[(player - 1) * 2 + 1][c.x - 1][c.y - 1] = mxRow;
-                BoardData[(player - 1) * 2 + 1][d.x - 1][d.y - 1] = mxRow;
+                int GBa = GameBoard[point2num(a)],
+                    GBb = GameBoard[point2num(b)],
+                    GBc = GameBoard[point2num(c)],
+                    GBd = GameBoard[point2num(d)];
+                if (GBa != Opponent && GBb != Opponent && GBc != Opponent &&
+                    GBd != Opponent)
+                {
+                    DATA[0][a.x - 1][a.y - 1] += 1;
+                    DATA[0][b.x - 1][b.y - 1] += 1;
+                    DATA[0][c.x - 1][c.y - 1] += 1;
+                    DATA[0][d.x - 1][d.y - 1] += 1;
+                    DATA[1][a.x - 1][a.y - 1] += mxRow;
+                    DATA[1][b.x - 1][b.y - 1] += mxRow;
+                    DATA[1][c.x - 1][c.y - 1] += mxRow;
+                    DATA[1][d.x - 1][d.y - 1] += mxRow;
+
+                    bestIdx = CalculateTemplatePatternData(
+                        TemplatePatternData, TotalScore, GameBoard, player, a,
+                        b, c, d, mxRow, bestIdx);
+                }
+                if (GBa == player && GBb == player)
+                {
+                    int score = 1;
+                    if (GBc == player || GBd == player) score++;
+                    if (GBc == Opponent || GBd == Opponent ||
+                        (GBc == player && GBd == player))
+                        score = 0;
+                    DATA[4][c.x - 1][c.y - 1] += score;
+                    DATA[4][d.x - 1][d.y - 1] += score;
+                    DATA[5][c.x - 1][c.y - 1] += mxRow;
+                    DATA[5][d.x - 1][d.y - 1] += mxRow;
+                }
+                if (GBa == Opponent && GBb == Opponent)
+                {
+                    int score = 1;
+                    if (GBc == Opponent || GBd == Opponent) score++;
+                    if (GBc == player || GBd == player ||
+                        (GBc == Opponent && GBd == Opponent))
+                        score = 0;
+                    DATA[6][c.x - 1][c.y - 1] += score;
+                    DATA[6][d.x - 1][d.y - 1] += score;
+                    DATA[7][c.x - 1][c.y - 1] += mxRow;
+                    DATA[7][d.x - 1][d.y - 1] += mxRow;
+                }
             }
-            else if (validateC != ERR_OUT_OF_BOUND &&
-                     validateD != ERR_OUT_OF_BOUND)
+        }
+
+    if (0 && debug)
+    {
+        // print template pattern data
+        printf("bestIdx: %d\n", bestIdx);
+        printf("TemplatePatternData:\n");
+        for (int i = 0; i < 4; i++)
+        {
+            printf("TemplatePatternData[%d]:\n", i);
+            printf("TotalScore[%d]: %d\n", i, TotalScore[i]);
+            for (int j = 0; j < 2; j++)
             {
-                BoardData[(player - 1) * 2][c.x - 1][c.y - 1] = 2;
-                BoardData[(player - 1) * 2][d.x - 1][d.y - 1] = 2;
-                BoardData[(player - 1) * 2 + 1][c.x - 1][c.y - 1] = mxRow;
-                BoardData[(player - 1) * 2 + 1][d.x - 1][d.y - 1] = mxRow;
+                printf("TemplatePatternData[%d][%d]:\n", i, j);
+                for (int k = 0; k < 8; k++)
+                {
+                    for (int l = 0; l < 8; l++)
+                        printf("%*d ", 3, TemplatePatternData[i][j][k][l]);
+                    printf("\n");
+                }
             }
         }
     }
+
+    for (int i = 0; i < 8; i++)
+        for (int j = 0; j < 8; j++)
+            DATA[2][i][j] = TemplatePatternData[bestIdx][0][i][j],
+            DATA[3][i][j] = TemplatePatternData[bestIdx][1][i][j];
 }
 
 typedef struct {
@@ -289,14 +386,25 @@ int compareHeuristic(const void *a, const void *b)
 }
 void calculate_heuristics(const int player,
                           const int GameBoard[],
-                          const Point PointList[2][64],
-                          const int PointCnt[2],
                           int SearchPointList[64])
 {
-    int BoardData[4][8][8] = { 0 };
-    CalculateExistingData(PointList[0], PointCnt[0], BoardData, GameBoard,
-                          BLUE);
-    CalculateExistingData(PointList[1], PointCnt[1], BoardData, GameBoard, RED);
+    int DATA[DATASIZE][8][8] = {};
+    CalculatePossibleData(GameBoard, DATA, player);
+
+    if (1 && debug)
+    {
+        printf("DATA:\n");
+        for (int i = 0; i < DATASIZE; i++)
+        {
+            printf("DATA[%d]:\n", i);
+            for (int j = 0; j < 8; j++)
+            {
+                for (int k = 0; k < 8; k++) printf("%*d ", 3, DATA[i][j][k]);
+                printf("\n");
+            }
+        }
+    }
+
     IndexValue HeuristicPointList[64];
     int HeuristicPointListCnt = 0;
     for (int i = 0; i < 8; i++)
@@ -309,10 +417,6 @@ void calculate_heuristics(const int player,
             for (int k = 0; k < DATASIZE; k++)
                 HeuristicPointList[HeuristicPointListCnt].value +=
                     weights[k] * DATA[k][i][j];
-
-            for (int k = 0; k < 4; k++)
-                HeuristicPointList[HeuristicPointListCnt].value +=
-                    weights[5 + k] * BoardData[k][i][j];
 
             HeuristicPointListCnt++;
         }
@@ -331,6 +435,7 @@ void calculate_heuristics(const int player,
 // 4. use heuristics
 // 5. program a genetic algorithm to find the best weights
 // 6. use depth and search limit as weights
+// 7. killer heuristics
 ll getMove(const int player,
            int GameBoard[],
            int depth,
@@ -354,6 +459,12 @@ ll getMove(const int player,
     else if (GameState) return (10000 - depth) * isMaximizing;
 
     if (depth == maxDepth) return score;
+
+    int SearchPointList[64];
+    if (depth == 0)
+    {
+        calculate_heuristics(player, GameBoard, SearchPointList);
+    }
 
     for (int i = 1; i <= 8; i++)
     {
@@ -420,7 +531,7 @@ ll getMove(const int player,
 
 int ai_player(int player, const int *board)
 {
-    int GameBoard[89], empty = 0, PointCnt[2] = { 0 };
+    int GameBoard[89] = {}, empty = 0, PointCnt[2] = { 0 };
     Point PointList[2][64];
     for (int i = 1; i <= 8; i++)
         for (int j = 1; j <= 8; j++)
