@@ -18,7 +18,20 @@ const int TemplatePattern[8][8] = {
 };
 //clang-format on
 
-double weights[DATASIZE+2] = {1,1,1,1, 1, 1,1,1,6,64};
+enum {POSSIBLE_SQUARES, POSSIBLE_SCORE, PATTERN_SQUARES, PATTERN_SCORE, MY_SQUARES, MY_SCORE, OPPONENT_SQUARES, OPPONENT_SCORE, DEPTH, MAGIC_RATIO_CONSTANT};
+
+double weights[DATASIZE+2] = {
+    1, // possible squares
+    1, // possible score
+    1, // pattern squares
+    1, // pattern score
+    1, // my squares
+    1, // my score
+    50, // opponent squares
+    50, // opponent score
+    6, // depth
+    7.81  // magic ratio constant
+};
 
 typedef long long ll;
 typedef struct {
@@ -54,6 +67,8 @@ int min(int a, int b)
 
 #ifdef R_LOCAL
 int debug = 1;
+#define DEBUGS debug = 1
+#define DEBUGE debug = 0
 
 void printBoard(const int GameBoard[])
 {
@@ -90,6 +105,8 @@ void printBoard(const int GameBoard[])
 
 #else
 int debug = 0;
+#define DEBUGS debug = 0
+#define DEBUGE debug = 0~
 void PrintBoard(const int GameBoard[]) {}
 #define DEBUG(...)
 #endif
@@ -319,27 +336,32 @@ void CalculatePossibleData(const int GameBoard[],
                         TemplatePatternData, TotalScore, GameBoard, player, a,
                         b, c, d, mxRow, bestIdx);
                 }
-                if (GBa == player && GBb == player)
+                int playerCnt = 0, OppCnt = 0;
+                playerCnt += (GBa == player) + (GBb == player) +
+                             (GBc == player) + (GBd == player);
+                OppCnt += (GBa == Opponent) + (GBb == Opponent) +
+                          (GBc == Opponent) + (GBd == Opponent);
+                if (playerCnt > 1 && !OppCnt)
                 {
-                    int score = 1;
-                    if (GBc == player || GBd == player) score++;
-                    if (GBc == Opponent || GBd == Opponent ||
-                        (GBc == player && GBd == player))
-                        score = 0;
-                    DATA[4][c.x - 1][c.y - 1] += score;
-                    DATA[4][d.x - 1][d.y - 1] += score;
+                    mxRow *= playerCnt, playerCnt *= playerCnt;
+                    DATA[4][a.x - 1][a.y - 1] += playerCnt;
+                    DATA[4][b.x - 1][b.y - 1] += playerCnt;
+                    DATA[4][c.x - 1][c.y - 1] += playerCnt;
+                    DATA[4][d.x - 1][d.y - 1] += playerCnt;
+                    DATA[5][a.x - 1][a.y - 1] += mxRow;
+                    DATA[5][b.x - 1][b.y - 1] += mxRow;
                     DATA[5][c.x - 1][c.y - 1] += mxRow;
                     DATA[5][d.x - 1][d.y - 1] += mxRow;
                 }
-                if (GBa == Opponent && GBb == Opponent)
+                if (!playerCnt && OppCnt > 1)
                 {
-                    int score = 1;
-                    if (GBc == Opponent || GBd == Opponent) score++;
-                    if (GBc == player || GBd == player ||
-                        (GBc == Opponent && GBd == Opponent))
-                        score = 0;
-                    DATA[6][c.x - 1][c.y - 1] += score;
-                    DATA[6][d.x - 1][d.y - 1] += score;
+                    mxRow *= OppCnt, OppCnt *= OppCnt;
+                    DATA[6][a.x - 1][a.y - 1] += OppCnt;
+                    DATA[6][b.x - 1][b.y - 1] += OppCnt;
+                    DATA[6][c.x - 1][c.y - 1] += OppCnt;
+                    DATA[6][d.x - 1][d.y - 1] += OppCnt;
+                    DATA[7][a.x - 1][a.y - 1] += mxRow;
+                    DATA[7][b.x - 1][b.y - 1] += mxRow;
                     DATA[7][c.x - 1][c.y - 1] += mxRow;
                     DATA[7][d.x - 1][d.y - 1] += mxRow;
                 }
@@ -382,7 +404,7 @@ typedef struct {
 int compareHeuristic(const void *a, const void *b)
 {
     IndexValue *ia = (IndexValue *)a, *ib = (IndexValue *)b;
-    return (int)(ia->value - ib->value);
+    return (int)(ib->value - ia->value);
 }
 void calculate_heuristics(const int player,
                           const int GameBoard[],
@@ -399,7 +421,15 @@ void calculate_heuristics(const int player,
             printf("DATA[%d]:\n", i);
             for (int j = 0; j < 8; j++)
             {
-                for (int k = 0; k < 8; k++) printf("%*d ", 3, DATA[i][j][k]);
+                for (int k = 0; k < 8; k++)
+                {
+                    if (GameBoard[point2num((Point){ j + 1, k + 1 })] == BLUE)
+                        printf("%*s ", 3, "#");
+                    else if (GameBoard[point2num((Point){ j + 1, k + 1 })] ==
+                             RED)
+                        printf("%*s ", 3, "@");
+                    else printf("%*d ", 3, DATA[i][j][k]);
+                }
                 printf("\n");
             }
         }
@@ -409,20 +439,28 @@ void calculate_heuristics(const int player,
     int HeuristicPointListCnt = 0;
     for (int i = 0; i < 8; i++)
         for (int j = 0; j < 8; j++)
-        {
             if (validate_input(point2num((Point){ i + 1, j + 1 }), GameBoard) ==
                 ERR_NONE)
+            {
                 HeuristicPointList[HeuristicPointListCnt].index =
                     point2num((Point){ i + 1, j + 1 });
-            for (int k = 0; k < DATASIZE; k++)
-                HeuristicPointList[HeuristicPointListCnt].value +=
-                    weights[k] * DATA[k][i][j];
-
-            HeuristicPointListCnt++;
-        }
+                HeuristicPointList[HeuristicPointListCnt].value = 0;
+                for (int k = 0; k < DATASIZE; k++)
+                    HeuristicPointList[HeuristicPointListCnt].value +=
+                        weights[k] * DATA[k][i][j];
+                HeuristicPointListCnt++;
+            }
 
     qsort(HeuristicPointList, HeuristicPointListCnt, sizeof(IndexValue),
           compareHeuristic);
+
+    if (1 && debug)
+    {
+        printf("HeuristicPointList:\n");
+        for (int i = 0; i < HeuristicPointListCnt; i++)
+            printf("%d: %Lf\n", HeuristicPointList[i].index,
+                   HeuristicPointList[i].value);
+    }
 
     for (int i = 0; i < HeuristicPointListCnt; i++)
         SearchPointList[i] = HeuristicPointList[i].index;
@@ -460,69 +498,64 @@ ll getMove(const int player,
 
     if (depth == maxDepth) return score;
 
-    int SearchPointList[64];
-    if (depth == 0)
+    int SearchPointList[64] = {};
+    debug = 0;
+    calculate_heuristics(player, GameBoard, SearchPointList);
+    DEBUGE;
+    for (int i = 0; i < 20; i++)
     {
-        calculate_heuristics(player, GameBoard, SearchPointList);
-    }
-
-    for (int i = 1; i <= 8; i++)
-    {
-        for (int j = 1; j <= 8; j++)
+        if (SearchPointList[i] == 0) break;
+        int Move = SearchPointList[i];
+        if (validate_input(Move, GameBoard) == ERR_NONE)
         {
-            int Move = point2num((Point){ i, j });
-            if (validate_input(Move, GameBoard) == ERR_NONE)
+            GameBoard[Move] = currPlayer;
+            PointList[currPlayer - 1][PointCnt[currPlayer - 1]++] =
+                num2point(Move);
+            ll deltaScore = new_squares_score(Move, currPlayer, GameBoard, 0,
+                                              PointList[currPlayer - 1],
+                                              PointCnt[currPlayer - 1]);
+
+            int newBlueScore = BlueScore, newRedScore = RedScore;
+            if (currPlayer == BLUE) newBlueScore += deltaScore;
+            else newRedScore += deltaScore;
+            deltaScore = deltaScore * isMaximizing * 10;
+            if (deltaScore) deltaScore -= depth * isMaximizing;
+
+            int BestSequenceRet[64];
+
+            ll tempScore = getMove(
+                player, GameBoard, depth + 1, score + deltaScore, newBlueScore,
+                newRedScore, (currPlayer == BLUE) ? RED : BLUE, BestMove, alpha,
+                beta, maxDepth, PointList, PointCnt, BestSequenceRet);
+
+            if (isMaximizing == 1)
             {
-                GameBoard[Move] = currPlayer;
-                PointList[currPlayer - 1][PointCnt[currPlayer - 1]++] =
-                    (Point){ i, j };
-                ll deltaScore = new_squares_score(Move, currPlayer, GameBoard,
-                                                  0, PointList[currPlayer - 1],
-                                                  PointCnt[currPlayer - 1]);
-
-                int newBlueScore = BlueScore, newRedScore = RedScore;
-                if (currPlayer == BLUE) newBlueScore += deltaScore;
-                else newRedScore += deltaScore;
-                deltaScore = deltaScore * isMaximizing * 10;
-                if (deltaScore) deltaScore -= depth * isMaximizing;
-
-                int BestSequenceRet[64];
-
-                ll tempScore = getMove(
-                    player, GameBoard, depth + 1, score + deltaScore,
-                    newBlueScore, newRedScore,
-                    (currPlayer == BLUE) ? RED : BLUE, BestMove, alpha, beta,
-                    maxDepth, PointList, PointCnt, BestSequenceRet);
-
-                if (isMaximizing == 1)
+                if (tempScore > bestScore)
                 {
-                    if (tempScore > bestScore)
-                    {
-                        bestScore = tempScore;
-                        BestSequence[depth] = Move;
-                        for (int k = depth + 1; k < maxDepth; k++)
-                            BestSequence[k] = BestSequenceRet[k];
-                        if (depth == 0) *BestMove = Move;
-                    }
-                    if (bestScore > alpha) alpha = bestScore;
+                    bestScore = tempScore;
+                    BestSequence[depth] = Move;
+                    for (int k = depth + 1; k < maxDepth; k++)
+                        BestSequence[k] = BestSequenceRet[k];
+                    if (depth == 0) *BestMove = Move;
                 }
-                else
-                {
-                    if (tempScore < bestScore)
-                    {
-                        bestScore = tempScore;
-                        BestSequence[depth] = Move;
-                        for (int k = depth + 1; k < maxDepth; k++)
-                            BestSequence[k] = BestSequenceRet[k];
-                        if (depth == 0) *BestMove = Move;
-                    }
-                    if (bestScore < beta) beta = bestScore;
-                }
-
-                GameBoard[Move] = EMPTY;
-                PointCnt[currPlayer - 1]--;
-                if (alpha >= beta) return bestScore;
+                if (bestScore > alpha) alpha = bestScore;
             }
+            else
+            {
+                if (tempScore < bestScore)
+                {
+                    bestScore = tempScore;
+                    BestSequence[depth] = Move;
+                    for (int k = depth + 1; k < maxDepth; k++)
+                        BestSequence[k] = BestSequenceRet[k];
+                    if (depth == 0) *BestMove = Move;
+                }
+                if (bestScore < beta) beta = bestScore;
+            }
+
+            GameBoard[Move] = EMPTY;
+            PointCnt[currPlayer - 1]--;
+            if (alpha >= beta) return bestScore;
         }
     }
 
@@ -552,7 +585,14 @@ int ai_player(int player, const int *board)
             }
         }
 
-    int BestMove = -1, maxDepth = 5, BestSequence[64] = { 0 };
+    int BestMove = -1, maxDepth = weights[DEPTH], BestSequence[64] = { 0 };
+
+    int branching_factor = powl(10, weights[MAGIC_RATIO_CONSTANT / maxDepth]);
+    if (branching_factor > empty)
+    {
+        branching_factor = empty;
+        maxDepth = weights[MAGIC_RATIO_CONSTANT] / log10l(empty);
+    }
     if (empty == 0) return 0;
 
     int RedScore = 0, BlueScore = 0, mxLen = max(PointCnt[0], PointCnt[1]);
@@ -605,6 +645,7 @@ int ai_player(int player, const int *board)
     getMove(player, GameBoard, 0, 0, BlueScore, RedScore, player, &BestMove,
             LLONG_MIN, LLONG_MAX, maxDepth, PointList, PointCnt, BestSequence);
 
+    DEBUGE;
     if (debug)
     {
         printf("Move sequence: ");
