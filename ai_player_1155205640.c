@@ -16,22 +16,39 @@ const int TemplatePattern[8][8] = {
     {  1,   0,   1,   0,   1,   0,   1,   0},
     {  0,   0,   0,   1,   0,   1,   0,   0}
 };
-//clang-format on
+// clang-format on
 
-enum {POSSIBLE_SQUARES, POSSIBLE_SCORE, PATTERN_SQUARES, PATTERN_SCORE, MY_SQUARES, MY_SCORE, OPPONENT_SQUARES, OPPONENT_SCORE, DEPTH, MAGIC_RATIO_CONSTANT};
+enum {
+    POSSIBLE_SQUARES,
+    POSSIBLE_SCORE,
+    PATTERN_SQUARES,
+    PATTERN_SCORE,
+    MY_SQUARES,
+    MY_SCORE,
+    OPPONENT_SQUARES,
+    OPPONENT_SCORE,
+    KILLER_HEURISTICS,
+    KILLER_DECAY_CONSTANT,
+    DEPTH,
+    DLOGB_CONSTANT
+};
 
-double weights[DATASIZE+2] = {
-    1, // possible squares
-    1, // possible score
-    1, // pattern squares
-    1, // pattern score
-    1, // my squares
-    1, // my score
-    50, // opponent squares
-    50, // opponent score
-    6, // depth
+double weights[DATASIZE + 2 + 2] = {
+    1,    // possible squares
+    1,    // possible score
+    1,    // pattern squares
+    1,    // pattern score
+    1,    // my squares
+    1,    // my score
+    50,   // opponent squares
+    50,   // opponent score
+    100,  // killer heuristics
+    0.8,  // killer decay constant
+    6,    // depth
     7.81  // magic ratio constant
 };
+
+long double killerHeuristics[2][64][8][8];
 
 typedef long long ll;
 typedef struct {
@@ -421,13 +438,14 @@ int compareHeuristic(const void *a, const void *b)
 void calculate_heuristics(const int player,
                           const int GameBoard[],
                           int SearchPointList[64],
+                          long double localkillerHeuristics[8][8],
                           int *BlueScore,
                           int *RedScore)
 {
     int DATA[DATASIZE][8][8] = {};
     CalculatePossibleData(GameBoard, DATA, player, BlueScore, RedScore);
 
-    if (1 && debug)
+    if (debug)
     {
         printf("DATA:\n");
         for (int i = 0; i < DATASIZE; i++)
@@ -462,13 +480,18 @@ void calculate_heuristics(const int player,
                 for (int k = 0; k < DATASIZE; k++)
                     HeuristicPointList[HeuristicPointListCnt].value +=
                         weights[k] * DATA[k][i][j];
+
+                HeuristicPointList[HeuristicPointListCnt].value +=
+                    weights[KILLER_HEURISTICS] * localkillerHeuristics[i][j];
+
+                localkillerHeuristics[i][j] *= weights[KILLER_DECAY_CONSTANT];
                 HeuristicPointListCnt++;
             }
 
     qsort(HeuristicPointList, HeuristicPointListCnt, sizeof(IndexValue),
           compareHeuristic);
 
-    if (1 && debug)
+    if (debug)
     {
         printf("HeuristicPointList:\n");
         for (int i = 0; i < HeuristicPointListCnt; i++)
@@ -499,12 +522,14 @@ ll getMove(const int player,
            ll alpha,
            ll beta,
            int maxDepth,
+           int branching_factor,
            Point PointList[2][64],
            int PointCnt[2],
            int BestSequence[64])
 {
     int isMaximizing = (player == currPlayer ? 1 : -1);
     ll bestScore = LLONG_MAX * (-1 * isMaximizing);
+    Point currBestMovePoint;
 
     int GameState = is_game_over(GameBoard, BlueScore, RedScore);
     if (GameState == DRAW) return 0;
@@ -512,21 +537,23 @@ ll getMove(const int player,
 
     if (depth == maxDepth) return score;
 
-    int SearchPointList[64] = {}, tempBlueScore = 0, tempRedScore = 0;
+    int SearchPointList[64] = {}, tempBlueScore = 0, tempRedScore = 0,
+        totalMoves = PointCnt[0] + PointCnt[1];
     debug = 0;
-    calculate_heuristics(player, GameBoard, SearchPointList, &tempBlueScore,
-                         &tempRedScore);
+    calculate_heuristics(player, GameBoard, SearchPointList,
+                         killerHeuristics[currPlayer - 1][totalMoves + depth],
+                         &tempBlueScore, &tempRedScore);
     DEBUGE;
     if (depth == 0) BlueScore = tempBlueScore, RedScore = tempRedScore;
-    for (int i = 0; i < 20; i++)
+    for (int i = 0; i < branching_factor; i++)
     {
         if (SearchPointList[i] == 0) break;
         int Move = SearchPointList[i];
         if (validate_input(Move, GameBoard) == ERR_NONE)
         {
             GameBoard[Move] = currPlayer;
-            PointList[currPlayer - 1][PointCnt[currPlayer - 1]++] =
-                num2point(Move);
+            Point MovePoint = num2point(Move);
+            PointList[currPlayer - 1][PointCnt[currPlayer - 1]++] = MovePoint;
             ll deltaScore = new_squares_score(Move, currPlayer, GameBoard, 0,
                                               PointList[currPlayer - 1],
                                               PointCnt[currPlayer - 1]);
@@ -542,7 +569,11 @@ ll getMove(const int player,
             ll tempScore = getMove(
                 player, GameBoard, depth + 1, score + deltaScore, newBlueScore,
                 newRedScore, (currPlayer == BLUE) ? RED : BLUE, BestMove, alpha,
-                beta, maxDepth, PointList, PointCnt, BestSequenceRet);
+                beta, maxDepth, branching_factor, PointList, PointCnt,
+                BestSequenceRet);
+
+            killerHeuristics[currPlayer - 1][totalMoves + depth]
+                            [MovePoint.x - 1][MovePoint.y - 1] += tempScore;
 
             if (isMaximizing == 1)
             {
@@ -552,6 +583,7 @@ ll getMove(const int player,
                     BestSequence[depth] = Move;
                     for (int k = depth + 1; k < maxDepth; k++)
                         BestSequence[k] = BestSequenceRet[k];
+                    currBestMovePoint = MovePoint;
                     if (depth == 0) *BestMove = Move;
                 }
                 if (bestScore > alpha) alpha = bestScore;
@@ -564,6 +596,7 @@ ll getMove(const int player,
                     BestSequence[depth] = Move;
                     for (int k = depth + 1; k < maxDepth; k++)
                         BestSequence[k] = BestSequenceRet[k];
+                    currBestMovePoint = MovePoint;
                     if (depth == 0) *BestMove = Move;
                 }
                 if (bestScore < beta) beta = bestScore;
@@ -574,6 +607,10 @@ ll getMove(const int player,
             if (alpha >= beta) return bestScore;
         }
     }
+
+    killerHeuristics[currPlayer - 1][totalMoves + depth]
+                    [currBestMovePoint.x - 1][currBestMovePoint.y - 1] *=
+        llabs(bestScore);
 
     return bestScore;
 }
@@ -604,16 +641,16 @@ int ai_player(int player, const int *board)
 
     int BestMove = -1, maxDepth = weights[DEPTH], BestSequence[64] = { 0 };
 
-    int branching_factor = powl(10, weights[MAGIC_RATIO_CONSTANT / maxDepth]);
+    int branching_factor = powl(10, weights[DLOGB_CONSTANT] / maxDepth);
     if (branching_factor > empty)
     {
         branching_factor = empty;
-        maxDepth = weights[MAGIC_RATIO_CONSTANT] / log10l(empty);
+        maxDepth = weights[DLOGB_CONSTANT] / log10l(empty);
     }
 
-
-    getMove(player, GameBoard, 0, 0, 0, 0, player, &BestMove,
-            LLONG_MIN, LLONG_MAX, maxDepth, PointList, PointCnt, BestSequence);
+    getMove(player, GameBoard, 0, 0, 0, 0, player, &BestMove, LLONG_MIN,
+            LLONG_MAX, maxDepth, branching_factor, PointList, PointCnt,
+            BestSequence);
 
     DEBUGE;
     if (debug)
