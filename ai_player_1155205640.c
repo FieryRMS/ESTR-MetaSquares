@@ -106,7 +106,7 @@ void printBoard(const int GameBoard[])
 #else
 int debug = 0;
 #define DEBUGS debug = 0
-#define DEBUGE debug = 0~
+#define DEBUGE debug = 0
 void PrintBoard(const int GameBoard[]) {}
 #define DEBUG(...)
 #endif
@@ -291,7 +291,9 @@ int CalculateTemplatePatternData(int TemplatePatternData[4][2][8][8],
 
 void CalculatePossibleData(const int GameBoard[],
                            int DATA[DATASIZE][8][8],
-                           const int player)
+                           const int player,
+                           int *BlueScore,
+                           int *RedScore)
 {
     int Opponent = (player == BLUE ? RED : BLUE);
     int TemplatePatternData[4][2][8][8] = { 0 }, TotalScore[4] = { 0 };
@@ -341,6 +343,16 @@ void CalculatePossibleData(const int GameBoard[],
                              (GBc == player) + (GBd == player);
                 OppCnt += (GBa == Opponent) + (GBb == Opponent) +
                           (GBc == Opponent) + (GBd == Opponent);
+                if (playerCnt == 4)
+                {
+                    if (player == BLUE) *BlueScore += mxRow;
+                    else *RedScore += mxRow;
+                }
+                else if (OppCnt == 4)
+                {
+                    if (player == BLUE) *RedScore += mxRow;
+                    else *BlueScore += mxRow;
+                }
                 if (playerCnt > 1 && !OppCnt)
                 {
                     mxRow *= playerCnt, playerCnt *= playerCnt;
@@ -408,10 +420,12 @@ int compareHeuristic(const void *a, const void *b)
 }
 void calculate_heuristics(const int player,
                           const int GameBoard[],
-                          int SearchPointList[64])
+                          int SearchPointList[64],
+                          int *BlueScore,
+                          int *RedScore)
 {
     int DATA[DATASIZE][8][8] = {};
-    CalculatePossibleData(GameBoard, DATA, player);
+    CalculatePossibleData(GameBoard, DATA, player, BlueScore, RedScore);
 
     if (1 && debug)
     {
@@ -494,14 +508,16 @@ ll getMove(const int player,
 
     int GameState = is_game_over(GameBoard, BlueScore, RedScore);
     if (GameState == DRAW) return 0;
-    else if (GameState) return (10000 - depth) * isMaximizing;
+    else if (GameState) return (100000 - depth) * isMaximizing * -1;
 
     if (depth == maxDepth) return score;
 
-    int SearchPointList[64] = {};
+    int SearchPointList[64] = {}, tempBlueScore = 0, tempRedScore = 0;
     debug = 0;
-    calculate_heuristics(player, GameBoard, SearchPointList);
+    calculate_heuristics(player, GameBoard, SearchPointList, &tempBlueScore,
+                         &tempRedScore);
     DEBUGE;
+    if (depth == 0) BlueScore = tempBlueScore, RedScore = tempRedScore;
     for (int i = 0; i < 20; i++)
     {
         if (SearchPointList[i] == 0) break;
@@ -584,6 +600,7 @@ int ai_player(int player, const int *board)
                     break;
             }
         }
+    if (empty == 0) return 0;
 
     int BestMove = -1, maxDepth = weights[DEPTH], BestSequence[64] = { 0 };
 
@@ -593,56 +610,9 @@ int ai_player(int player, const int *board)
         branching_factor = empty;
         maxDepth = weights[MAGIC_RATIO_CONSTANT] / log10l(empty);
     }
-    if (empty == 0) return 0;
 
-    int RedScore = 0, BlueScore = 0, mxLen = max(PointCnt[0], PointCnt[1]);
 
-    for (int i = 0; i < mxLen - 1; i++)
-        for (int j = i + 1; j < mxLen; j++)
-        {
-            if (j < PointCnt[0])
-            {
-                Point a = PointList[0][i], b = PointList[0][i];
-                if (a.x > b.x || (a.x == b.x && a.y > b.y))
-                {
-                    Point temp = a;
-                    a = b;
-                    b = temp;
-                }
-                if (a.y >= b.y) continue;
-                int dx = abs(a.x - b.x), dy = abs(a.y - b.y);
-                Point c = { a.x + dy, a.y - dx }, d = { b.x + dy, b.y - dx };
-                int mxRow = max(abs(c.y - b.y), abs(d.y - a.y)) + 1;
-                mxRow *= mxRow;
-                if (validate_input(point2num(c), GameBoard) == ERR_OCCUPIED &&
-                    validate_input(point2num(d), GameBoard) == ERR_OCCUPIED &&
-                    GameBoard[point2num(c)] == BLUE &&
-                    GameBoard[point2num(d)] == BLUE)
-                    BlueScore += mxRow;
-            }
-            if (j < PointCnt[1])
-            {
-                Point a = PointList[1][i], b = PointList[1][i];
-                if (a.x > b.x || (a.x == b.x && a.y > b.y))
-                {
-                    Point temp = a;
-                    a = b;
-                    b = temp;
-                }
-                if (a.y >= b.y) continue;
-                int dx = abs(a.x - b.x), dy = abs(a.y - b.y);
-                Point c = { a.x + dy, a.y - dx }, d = { b.x + dy, b.y - dx };
-                int mxRow = max(abs(c.y - b.y), abs(d.y - a.y)) + 1;
-                mxRow *= mxRow;
-                if (validate_input(point2num(c), GameBoard) == ERR_OCCUPIED &&
-                    validate_input(point2num(d), GameBoard) == ERR_OCCUPIED &&
-                    GameBoard[point2num(c)] == RED &&
-                    GameBoard[point2num(d)] == RED)
-                    RedScore += mxRow;
-            }
-        }
-
-    getMove(player, GameBoard, 0, 0, BlueScore, RedScore, player, &BestMove,
+    getMove(player, GameBoard, 0, 0, 0, 0, player, &BestMove,
             LLONG_MIN, LLONG_MAX, maxDepth, PointList, PointCnt, BestSequence);
 
     DEBUGE;
