@@ -144,7 +144,9 @@ int main()
     printUI(GameBoard, RedScore, BlueScore, Player);
     do {
         int Move;
-        if (GameMode == 2 && Player == RED) Move = ai_player(Player, GameBoard);
+        if ((GameMode == 2 && Player == RED) ||
+            (GameMode == 3 && Player == BLUE))
+            Move = ai_player(Player, GameBoard);
         else Move = input_move(Player, GameBoard);
         make_move(Move, Player, GameBoard, PointList, PointCnt);
         int score =
