@@ -33,6 +33,7 @@ LIB2.ai_player.restype = ctypes.c_int
 LIB2.reset_state.argtypes = [ctypes.POINTER(ctypes.c_double)]
 LIB2.reset_state.restype = None
 
+
 class Player(Enum):
     EMPTY = 0
     BLUE = 1
@@ -464,14 +465,15 @@ if __name__ == "__main__":
                 child.mutate_weights()
                 agents.append(child)
 
-        print("Adding random agents...")
+        print("Agents: {}".format(len(agents)))
+
+        print("Adding random agents to fill array...")
         while len(agents) < sample_size:
             agent = AI_Agent()
             agent.randomize_weights()
             agents.append(agent)
 
         print("Playing games...")
-
         games_played = 0
         total_games = sample_size * sample_size - sample_size
         for i in range(len(agents)):
