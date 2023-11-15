@@ -2,7 +2,7 @@ import ctypes
 from enum import Enum
 import random
 
-from time import perf_counter
+from time import perf_counter, time
 
 import pickle
 import config
@@ -14,6 +14,8 @@ from pathlib import Path
 
 Path(config.TRANING_LOCATION).mkdir(parents=True, exist_ok=True)
 
+client = google.cloud.logging.Client()
+gLogger = client.logger("Genetic AI")  # type: ignore
 
 LIB1 = ctypes.CDLL(config.DLLLOC1)
 LIB1.ai_player.argtypes = [
@@ -167,9 +169,11 @@ class MetaSquaresBoard:
     def make_move(self, p: Point):
         if not p.is_valid():
             logging.warning("Invalid move: Out of bounds")
+            gLogger.log_text("Invalid move: Out of bounds", severity="WARNING")  # type: ignore
             return 0
         if not self.checkBoard(p, Player.EMPTY):
             logging.warning("Invalid move: Already occupied")
+            gLogger.log_text("Invalid move: Already occupied", severity="WARNING")  # type: ignore
             return 0
 
         self.board[p.x][p.y] = self.current_player
@@ -207,6 +211,7 @@ class MetaSquaresBoard:
         totalScore = 0
         if not p.is_valid():
             logging.error("Invalid move")
+            gLogger.log_text("Invalid move", severity="ERROR")  # type: ignore
             return 0
 
         for p1 in self.currPointList():
@@ -301,6 +306,7 @@ class AI_Agent:
     def get_move(self, board: MetaSquaresBoard):
         if self.lib == None:
             logging.error("ERROR: AI not initialized")
+            gLogger.log_text("ERROR: AI not initialized", severity="ERROR")  # type: ignore
             exit(1)
         c_board = (ctypes.c_int * len(board.linear_board))(*board.linear_board)
         x = self.lib.ai_player(self.player.value, c_board)
@@ -381,6 +387,7 @@ class MetaSquares:
                 logging.error("DATA:")
                 logging.error("AI1: " + str(self.AI1))
                 logging.error("AI2: " + str(self.AI2))
+                gLogger.log_text("AI made an invalid move: {}".format(p), severity="ERROR")  # type: ignore
                 exit(1)
 
         if self.gameState == State.INCOMPLETE:
@@ -421,13 +428,16 @@ def restore_agents(gen: int) -> list[AI_Agent]:
 
 
 if __name__ == "__main__":
+    file_handler = logging.FileHandler(
+        config.TRANING_LOCATION + "genetic_errors{}.log".format(time())
+    )
+    file_handler.setLevel(logging.WARNING)
     logging.basicConfig(
         level=logging.INFO,
         format="%(levelname)s %(asctime)s:\t %(message)s",
         datefmt="%H:%M:%S",
+        handlers=[logging.StreamHandler(), file_handler],
     )
-    client = google.cloud.logging.Client()
-    client.setup_logging()  # type: ignore
 
     generation = 0
     sample_size = config.SAMPLE_SIZE
@@ -448,6 +458,7 @@ if __name__ == "__main__":
             logging.info(("#" * config.HEADER_SIZE))
             logging.info("Generation: {}".format(generation).center(config.HEADER_SIZE))
             logging.info(("#" * config.HEADER_SIZE))
+            gLogger.log_text("Generation: {} started".format(generation))  # type: ignore
 
             win_loss_table = [
                 [State.DRAW for _ in range(sample_size)] for __ in range(sample_size)
@@ -481,6 +492,7 @@ if __name__ == "__main__":
                             generation, games_played, total_games, i, j
                         )
                     )
+                    gLogger.log_text("Playing game {}/{}: {} vs {}".format(games_played, total_games, i, j))  # type: ignore
                     game = MetaSquares(agents[i], agents[j])
                     game.game_loop()
                     score[i] += game.getScore(agents[i].player)
@@ -544,6 +556,7 @@ if __name__ == "__main__":
                 )
             )
             logging.info(("#" * config.HEADER_SIZE) + "\n\n\n")
+            gLogger.log_text("Generation: {} completed".format(generation))  # type: ignore
         except KeyboardInterrupt:
             logging.info("Keyboard Interrupt")
             break
