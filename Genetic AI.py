@@ -466,19 +466,26 @@ if __name__ == "__main__":
             score = [0.0 for _ in range(sample_size)]
 
             logging.info("Breeding agents...")
-            for i in range(len(agents) - 1):
-                for j in range(i + 1, len(agents)):
+
+            for i in range(persistent_agents - 1):
+                for j in range(i + 1, persistent_agents):
                     child: AI_Agent = agents[i].breed(agents[j])
                     child.mutate_weights()
                     agents.append(child)
 
             logging.info("Agents: {}\n".format(len(agents)))
 
-            logging.info("Adding random agents to fill array...\n")
-            while len(agents) < sample_size:
-                agent = AI_Agent()
-                agent.randomize_weights()
-                agents.append(agent)
+            if len(agents) > sample_size:
+                logging.info("Removing agents to fit array...\n")
+                while len(agents) > sample_size:
+                    agents.pop(random.randint(0, len(agents) - 1))
+
+            if len(agents) < sample_size:
+                logging.info("Adding random agents to fill array...\n")
+                while len(agents) < sample_size:
+                    agent = AI_Agent()
+                    agent.randomize_weights()
+                    agents.append(agent)
 
             logging.info("Playing games...")
             games_played = 0
@@ -559,4 +566,8 @@ if __name__ == "__main__":
             gLogger.log_text("GENERATION {} COMPLETE".format(generation))  # type: ignore
         except KeyboardInterrupt:
             logging.info("Keyboard Interrupt")
+            break
+        except Exception as e:
+            logging.error("ERROR: {}".format(e))
+            gLogger.log_text("ERROR: {}".format(e), severity="ERROR")  # type: ignore
             break
