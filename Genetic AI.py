@@ -8,6 +8,7 @@ import pickle
 import config
 from func_timeout import func_set_timeout, FunctionTimedOut  # type: ignore
 import logging
+import google.cloud.logging
 
 from pathlib import Path
 
@@ -425,6 +426,9 @@ if __name__ == "__main__":
         format="%(levelname)s %(asctime)s:\t %(message)s",
         datefmt="%H:%M:%S",
     )
+    client = google.cloud.logging.Client()
+    client.setup_logging()  # type: ignore
+
     generation = 0
     sample_size = config.SAMPLE_SIZE
     persistent_agents = config.PERSISTENT_AGENTS
@@ -473,8 +477,8 @@ if __name__ == "__main__":
                     if i == j:
                         continue
                     logging.info(
-                        "Playing game {}/{}: {} vs {}".format(
-                            games_played, total_games, i, j
+                        "GEN{}: Playing game {}/{}: {} vs {}".format(
+                            generation, games_played, total_games, i, j
                         )
                     )
                     game = MetaSquares(agents[i], agents[j])
@@ -491,25 +495,34 @@ if __name__ == "__main__":
             temp.sort(key=lambda x: x[1], reverse=True)
 
             logging.info("Top Agents:")
-            for i, _ in temp:
-                wins = 0
-                losses = 0
-                draws = 0
-                for j in range(sample_size):
-                    if i == j:
-                        continue
-                    if win_loss_table[i][j] == State.BLUE_WIN:
-                        wins += 1
-                    elif win_loss_table[i][j] == State.RED_WIN:
-                        losses += 1
-                    else:
-                        draws += 1
-                logging.info(str(agents[i]))
-                logging.info(
-                    "Wins: {}, Losses: {}, Draws: {} Score: {}\n".format(
-                        wins, losses, draws, score[i]
+            with open(
+                config.TRANING_LOCATION + "gen_{}_stats.log".format(generation), "w+"
+            ) as f:
+                for i, _ in temp:
+                    wins = 0
+                    losses = 0
+                    draws = 0
+                    for j in range(sample_size):
+                        if i == j:
+                            continue
+                        if win_loss_table[i][j] == State.BLUE_WIN:
+                            wins += 1
+                        elif win_loss_table[i][j] == State.RED_WIN:
+                            losses += 1
+                        else:
+                            draws += 1
+                    logging.info(str(agents[i]))
+                    logging.info(
+                        "Wins: {}, Losses: {}, Draws: {} Score: {}\n".format(
+                            wins, losses, draws, score[i]
+                        )
                     )
-                )
+                    f.write(str(agents[i]) + "\n")
+                    f.write(
+                        "Wins: {}, Losses: {}, Draws: {} Score: {}\n\n".format(
+                            wins, losses, draws, score[i]
+                        )
+                    )
 
             agents = [agents[i] for i, _ in temp[:persistent_agents]]
 
