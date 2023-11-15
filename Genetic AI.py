@@ -218,9 +218,9 @@ class MetaSquaresBoard:
 
     def check_state(self):
         if self.BlueScore > 150 or self.RedScore > 150:
-            if self.BlueScore - self.RedScore > 15:
+            if self.BlueScore - self.RedScore >= 15:
                 return State.BLUE_WIN
-            if self.RedScore - self.BlueScore > 15:
+            if self.RedScore - self.BlueScore >= 15:
                 return State.RED_WIN
 
         if any(any(v == Player.EMPTY for v in row) for row in self.board):
