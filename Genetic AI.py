@@ -429,7 +429,7 @@ def restore_agents(gen: int) -> list[AI_Agent]:
 
 if __name__ == "__main__":
     file_handler = logging.FileHandler(
-        config.TRANING_LOCATION + "genetic_errors{}.log".format(time())
+        config.TRANING_LOCATION + "genetic_errors_{}.log".format(int(time()))
     )
     file_handler.setLevel(logging.WARNING)
     logging.basicConfig(
