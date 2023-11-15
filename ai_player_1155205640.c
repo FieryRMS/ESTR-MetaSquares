@@ -534,7 +534,7 @@ ll getMove(const int player,
 {
     int isMaximizing = (player == currPlayer ? 1 : -1);
     ll bestScore = LLONG_MAX * (-1 * isMaximizing);
-    Point currBestMovePoint;
+    Point currBestMovePoint = { -1, -1 };
 
     int GameState = is_game_over(GameBoard, BlueScore, RedScore);
     if (GameState == DRAW) return score;
@@ -611,9 +611,10 @@ ll getMove(const int player,
         }
     }
 
-    killerHeuristics[currPlayer - 1][totalMoves + depth]
-                    [currBestMovePoint.x - 1][currBestMovePoint.y - 1] *=
-        llabs(bestScore);
+    if (currBestMovePoint.x != -1 && currBestMovePoint.y != -1)
+        killerHeuristics[currPlayer - 1][totalMoves + depth]
+                        [currBestMovePoint.x - 1][currBestMovePoint.y - 1] *=
+            llabs(bestScore);
 
     return bestScore;
 }
