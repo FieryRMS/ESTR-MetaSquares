@@ -124,7 +124,7 @@ void printBoard(const int GameBoard[])
 int debug = 0;
 #define DEBUGS debug = 0
 #define DEBUGE debug = 0
-void printBoard(const int GameBoard[]) {}
+#define printBoard(...)
 #define DEBUG(...)
 #endif
 

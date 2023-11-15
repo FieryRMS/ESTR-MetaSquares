@@ -6,7 +6,6 @@ from time import perf_counter
 
 import pickle
 import config
-import keyboard
 from func_timeout import func_set_timeout, FunctionTimedOut  # type: ignore
 import logging
 
@@ -369,10 +368,6 @@ class MetaSquares:
             else:
                 self.time_saved_AI2 += 5 - delta
 
-            if keyboard.is_pressed("ctrl+alt+shift+q"):
-                logging.warning("Game terminated")
-                exit(0)
-
             if self.board.make_move(p):
                 self.move_count += 1
             else:
@@ -443,95 +438,99 @@ if __name__ == "__main__":
         )
 
     while 1:
-        start_time = perf_counter()
-        generation += 1
-        logging.info(("#" * config.HEADER_SIZE))
-        logging.info("Generation: {}".format(generation).center(config.HEADER_SIZE))
-        logging.info(("#" * config.HEADER_SIZE))
+        try:
+            start_time = perf_counter()
+            generation += 1
+            logging.info(("#" * config.HEADER_SIZE))
+            logging.info("Generation: {}".format(generation).center(config.HEADER_SIZE))
+            logging.info(("#" * config.HEADER_SIZE))
 
-        win_loss_table = [
-            [State.DRAW for _ in range(sample_size)] for __ in range(sample_size)
-        ]
-        score = [0.0 for _ in range(sample_size)]
+            win_loss_table = [
+                [State.DRAW for _ in range(sample_size)] for __ in range(sample_size)
+            ]
+            score = [0.0 for _ in range(sample_size)]
 
-        logging.info("Breeding agents...")
-        for i in range(len(agents) - 1):
-            for j in range(i + 1, len(agents)):
-                child: AI_Agent = agents[i].breed(agents[j])
-                child.mutate_weights()
-                agents.append(child)
+            logging.info("Breeding agents...")
+            for i in range(len(agents) - 1):
+                for j in range(i + 1, len(agents)):
+                    child: AI_Agent = agents[i].breed(agents[j])
+                    child.mutate_weights()
+                    agents.append(child)
 
-        logging.info("Agents: {}\n".format(len(agents)))
+            logging.info("Agents: {}\n".format(len(agents)))
 
-        logging.info("Adding random agents to fill array...\n")
-        while len(agents) < sample_size:
-            agent = AI_Agent()
-            agent.randomize_weights()
-            agents.append(agent)
+            logging.info("Adding random agents to fill array...\n")
+            while len(agents) < sample_size:
+                agent = AI_Agent()
+                agent.randomize_weights()
+                agents.append(agent)
 
-        logging.info("Playing games...")
-        games_played = 0
-        total_games = sample_size * sample_size - sample_size
-        for i in range(len(agents)):
-            for j in range(len(agents)):
-                if i == j:
-                    continue
+            logging.info("Playing games...")
+            games_played = 0
+            total_games = sample_size * sample_size - sample_size
+            for i in range(len(agents)):
+                for j in range(len(agents)):
+                    if i == j:
+                        continue
+                    logging.info(
+                        "Playing game {}/{}: {} vs {}".format(
+                            games_played, total_games, i, j
+                        )
+                    )
+                    game = MetaSquares(agents[i], agents[j])
+                    game.game_loop()
+                    score[i] += game.getScore(agents[i].player)
+                    score[j] += game.getScore(agents[j].player)
+
+                    win_loss_table[i][j] = game.gameState
+                    games_played += 1
+                    logging.info("State: {}".format(game.gameState.name))
+
+            logging.info("Games Complete")
+            temp = [(i, score[i]) for i in range(len(score))]
+            temp.sort(key=lambda x: x[1], reverse=True)
+
+            logging.info("Top Agents:")
+            for i, _ in temp:
+                wins = 0
+                losses = 0
+                draws = 0
+                for j in range(sample_size):
+                    if i == j:
+                        continue
+                    if win_loss_table[i][j] == State.BLUE_WIN:
+                        wins += 1
+                    elif win_loss_table[i][j] == State.RED_WIN:
+                        losses += 1
+                    else:
+                        draws += 1
+                logging.info(str(agents[i]))
                 logging.info(
-                    "Playing game {}/{}: {} vs {}".format(
-                        games_played, total_games, i, j
+                    "Wins: {}, Losses: {}, Draws: {} Score: {}\n".format(
+                        wins, losses, draws, score[i]
                     )
                 )
-                game = MetaSquares(agents[i], agents[j])
-                game.game_loop()
-                score[i] += game.getScore(agents[i].player)
-                score[j] += game.getScore(agents[j].player)
 
-                win_loss_table[i][j] = game.gameState
-                games_played += 1
-                logging.info("State: {}".format(game.gameState.name))
+            agents = [agents[i] for i, _ in temp[:persistent_agents]]
 
-        logging.info("Games Complete")
-        temp = [(i, score[i]) for i in range(len(score))]
-        temp.sort(key=lambda x: x[1], reverse=True)
+            logging.info("\n\nSaving agents...")
+            dump = [i.weights for i in agents]
+            with open(
+                config.TRANING_LOCATION + "gen_{}.pickle".format(generation), "wb+"
+            ) as f:
+                pickle.dump(dump, f)
 
-        logging.info("Top Agents:")
-        for i, _ in temp:
-            wins = 0
-            losses = 0
-            draws = 0
-            for j in range(sample_size):
-                if i == j:
-                    continue
-                if win_loss_table[i][j] == State.BLUE_WIN:
-                    wins += 1
-                elif win_loss_table[i][j] == State.RED_WIN:
-                    losses += 1
-                else:
-                    draws += 1
-            logging.info(str(agents[i]))
+            elapsed_time = perf_counter() - start_time
+            logging.info(("#" * config.HEADER_SIZE))
             logging.info(
-                "Wins: {}, Losses: {}, Draws: {} Score: {}\n".format(
-                    wins, losses, draws, score[i]
+                "GENERATION {} COMPLETE".format(generation).center(config.HEADER_SIZE)
+            )
+            logging.info(
+                "TIME ELAPSED: {}".format(round(elapsed_time, 2)).center(
+                    config.HEADER_SIZE
                 )
             )
-
-        agents = [agents[i] for i, _ in temp[:persistent_agents]]
-
-        logging.info("\n\nSaving agents...")
-        dump = [i.weights for i in agents]
-        with open(
-            config.TRANING_LOCATION + "gen_{}.pickle".format(generation), "wb+"
-        ) as f:
-            pickle.dump(dump, f)
-
-        elapsed_time = perf_counter() - start_time
-        logging.info(("#" * config.HEADER_SIZE))
-        logging.info(
-            "GENERATION {} COMPLETE".format(generation).center(config.HEADER_SIZE)
-        )
-        logging.info(
-            "TIME ELAPSED: {}".format(round(elapsed_time, 2)).center(
-                config.HEADER_SIZE
-            )
-        )
-        logging.info(("#" * config.HEADER_SIZE) + "\n\n\n")
+            logging.info(("#" * config.HEADER_SIZE) + "\n\n\n")
+        except KeyboardInterrupt:
+            logging.info("Keyboard Interrupt")
+            break
