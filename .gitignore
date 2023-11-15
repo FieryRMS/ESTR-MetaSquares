@@ -5,3 +5,4 @@ expected*.txt
 output*.txt
 notes.md
 training_data
+__pycache__
