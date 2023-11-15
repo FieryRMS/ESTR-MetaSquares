@@ -4,12 +4,31 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "test",
+            "label": "test (c)",
             "type": "shell",
             "command": "./.exes/basic.exe",
             "group": {
                 "kind": "test",
-                "isDefault": true
+                "isDefault": "**/*.c",
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true,
+                "clear": true,
+                "showReuseMessage": false
+            }
+        },
+        {
+            "label": "test (py)",
+            "type": "shell",
+            "command": "python",
+            "args": [
+                "'./Genetic AI.py'"
+            ],
+            "group": {
+                "kind": "test",
+                "isDefault": "**/*.py"
             },
             "presentation": {
                 "reveal": "always",
@@ -39,10 +58,24 @@
                 "basic.c",
                 "ai_player_1155205640.c",
                 "-o",
-                ".exes/basic.exe"
+                ".exes/basic.exe",
+                ";",
+                "gcc",
+                "-DR_LOCAL",
+                "-shared",
+                "-o",
+                ".exes/ai_player1.dll",
+                "-fPIC",
+                "-O0",
+                "ai_player_1155205640.c",
+                ";",
+                "cp",
+                "-fr",
+                ".exes/ai_player1.dll",
+                ".exes/ai_player2.dll",
             ],
             "options": {
-                "cwd": "${fileDirname}"
+                "cwd": "${workspaceFolder}"
             },
             "problemMatcher": [
                 "$gcc"
@@ -59,6 +92,6 @@
                 "showReuseMessage": true,
                 "clear": true
             }
-        },
+        }
     ]
 }

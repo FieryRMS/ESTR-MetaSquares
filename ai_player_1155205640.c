@@ -33,7 +33,7 @@ enum {
     DLOGB_CONSTANT
 };
 
-double weights[DATASIZE + 2 + 2] = {
+long double weights[DATASIZE + 2 + 2] = {
     1,    // possible squares
     1,    // possible score
     1,    // pattern squares
@@ -124,7 +124,7 @@ void printBoard(const int GameBoard[])
 int debug = 0;
 #define DEBUGS debug = 0
 #define DEBUGE debug = 0
-void PrintBoard(const int GameBoard[]) {}
+void printBoard(const int GameBoard[]) {}
 #define DEBUG(...)
 #endif
 
@@ -166,7 +166,7 @@ void register_square(const Square sq,
 
     if (ShouldPrint)
         printf(
-            "%s gains %lld more points by formulating the squre {%d, %d, "
+            "%s gains %lld more points by formulating the square {%d, %d, "
             "%d, %d}\n",
             Player == BLUE ? "BLUE" : "RED", score, num[0], num[1], num[2],
             num[3]);
@@ -397,7 +397,8 @@ void CalculatePossibleData(const int GameBoard[],
             }
         }
 
-    if (0 && debug)
+    DEBUGE;
+    if (debug)
     {
         // print template pattern data
         printf("bestIdx: %d\n", bestIdx);
@@ -445,6 +446,7 @@ void calculate_heuristics(const int player,
     int DATA[DATASIZE][8][8] = {};
     CalculatePossibleData(GameBoard, DATA, player, BlueScore, RedScore);
 
+    DEBUGE;
     if (debug)
     {
         printf("DATA:\n");
@@ -488,9 +490,11 @@ void calculate_heuristics(const int player,
                 HeuristicPointListCnt++;
             }
 
-    qsort(HeuristicPointList, HeuristicPointListCnt, sizeof(IndexValue),
-          compareHeuristic);
+    if (HeuristicPointListCnt > 1)
+        qsort(HeuristicPointList, HeuristicPointListCnt, sizeof(IndexValue),
+              compareHeuristic);
 
+    DEBUGE;
     if (debug)
     {
         printf("HeuristicPointList:\n");
@@ -525,6 +529,7 @@ ll getMove(const int player,
            int branching_factor,
            Point PointList[2][64],
            int PointCnt[2],
+           const int totalMoves,
            int BestSequence[64])
 {
     int isMaximizing = (player == currPlayer ? 1 : -1);
@@ -532,18 +537,16 @@ ll getMove(const int player,
     Point currBestMovePoint;
 
     int GameState = is_game_over(GameBoard, BlueScore, RedScore);
-    if (GameState == DRAW) return 0;
+    if (GameState == DRAW) return score;
     else if (GameState) return (100000 - depth) * isMaximizing * -1;
 
     if (depth == maxDepth) return score;
 
-    int SearchPointList[64] = {}, tempBlueScore = 0, tempRedScore = 0,
-        totalMoves = PointCnt[0] + PointCnt[1];
-    debug = 0;
+    int SearchPointList[64] = {}, tempBlueScore = 0, tempRedScore = 0;
     calculate_heuristics(player, GameBoard, SearchPointList,
                          killerHeuristics[currPlayer - 1][totalMoves + depth],
                          &tempBlueScore, &tempRedScore);
-    DEBUGE;
+
     if (depth == 0) BlueScore = tempBlueScore, RedScore = tempRedScore;
     for (int i = 0; i < branching_factor; i++)
     {
@@ -570,7 +573,7 @@ ll getMove(const int player,
                 player, GameBoard, depth + 1, score + deltaScore, newBlueScore,
                 newRedScore, (currPlayer == BLUE) ? RED : BLUE, BestMove, alpha,
                 beta, maxDepth, branching_factor, PointList, PointCnt,
-                BestSequenceRet);
+                totalMoves, BestSequenceRet);
 
             killerHeuristics[currPlayer - 1][totalMoves + depth]
                             [MovePoint.x - 1][MovePoint.y - 1] += tempScore;
@@ -641,7 +644,11 @@ int ai_player(int player, const int *board)
 
     int BestMove = -1, maxDepth = weights[DEPTH], BestSequence[64] = { 0 };
 
-    int branching_factor = powl(10, weights[DLOGB_CONSTANT] / maxDepth);
+    int branching_factor = weights[DLOGB_CONSTANT] / maxDepth;
+    if (branching_factor > logl(64)) branching_factor = 64;
+    else branching_factor = min(powl(10, branching_factor), 64);
+
+    branching_factor = max(branching_factor, 1);
     if (branching_factor > empty)
     {
         branching_factor = empty;
@@ -650,7 +657,7 @@ int ai_player(int player, const int *board)
 
     getMove(player, GameBoard, 0, 0, 0, 0, player, &BestMove, LLONG_MIN,
             LLONG_MAX, maxDepth, branching_factor, PointList, PointCnt,
-            BestSequence);
+            64 - empty, BestSequence);
 
     DEBUGE;
     if (debug)
@@ -663,8 +670,8 @@ int ai_player(int player, const int *board)
     return BestMove;
 }
 
-int weighted_ai_player(int player, const int *board, double test_weights[])
+void reset_state(double test_weights[])
 {
-    memcpy(weights, test_weights, sizeof(weights));
-    return ai_player(player, board);
+    for (int i = 0; i < DATASIZE + 2 + 2; i++) weights[i] = test_weights[i];
+    memset(killerHeuristics, 0, sizeof(killerHeuristics));
 }
