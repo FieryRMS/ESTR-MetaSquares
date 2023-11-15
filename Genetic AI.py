@@ -9,6 +9,7 @@ import pickle
 import config
 import keyboard
 from func_timeout import func_set_timeout, FunctionTimedOut  # type: ignore
+import logging
 
 from pathlib import Path
 
@@ -212,7 +213,7 @@ class MetaSquaresBoard:
     def new_squares_score(self, p: Point):
         totalScore = 0
         if not p.is_valid():
-            print("Invalid move")
+            logging.error("Invalid move")
             return 0
 
         for p1 in self.currPointList():
@@ -225,9 +226,9 @@ class MetaSquaresBoard:
 
     def check_state(self):
         if self.BlueScore > 150 or self.RedScore > 150:
-            if self.BlueScore > self.RedScore:
+            if self.BlueScore - self.RedScore > 15:
                 return State.BLUE_WIN
-            if self.RedScore > self.BlueScore:
+            if self.RedScore - self.BlueScore > 15:
                 return State.RED_WIN
 
         if any(any(v == Player.EMPTY for v in row) for row in self.board):
@@ -306,7 +307,7 @@ class AI_Agent:
 
     def get_move(self, board: MetaSquaresBoard):
         if self.lib == None:
-            print("ERROR: AI not initialized")
+            logging.error("ERROR: AI not initialized")
             exit(1)
         c_board = (ctypes.c_int * len(board.linear_board))(*board.linear_board)
         x = self.lib.ai_player(self.player.value, c_board)
@@ -341,7 +342,7 @@ class MetaSquares:
 
     def log_status(self):
         if not self.is_first_log:
-            print("\033[A                             \033[A")
+            logging.info("\033[A                             \033[A")
 
         print(
             "Move: {}/64 | Blue Score: {} | Red Score: {}".format(
@@ -375,7 +376,7 @@ class MetaSquares:
             else:
                 self.time_saved_AI2 += 5 - delta
 
-            if keyboard.is_pressed("q"):
+            if keyboard.is_pressed("ctrl+alt+shift+q"):
                 print("Game terminated")
                 exit(0)
 
