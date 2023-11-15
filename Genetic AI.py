@@ -3,7 +3,6 @@ from enum import Enum
 import random
 
 from time import perf_counter
-from datetime import datetime
 
 import pickle
 import config
@@ -87,9 +86,6 @@ class Point:
     def toNum(self) -> int:
         return (self.x + 1) * 10 + (self.y + 1)
 
-    def print(self):
-        print(self.x, self.y)
-
     def is_valid(self) -> bool:
         return 0 <= self.x <= 7 and 0 <= self.y <= 7
 
@@ -113,9 +109,6 @@ class Square:
             self.p2 = p2
             self.p3 = p3
             self.p4 = p4
-
-    def print(self):
-        print(self.p1, self.p2, self.p3, self.p4)
 
     def is_valid(self):
         return (
@@ -155,28 +148,28 @@ class MetaSquaresBoard:
 
     def print(self):
         if self.current_player == Player.BLUE:
-            print("This is BLUE's turn")
+            logging.debug("This is BLUE's turn")
         else:
-            print("This is RED's turn")
+            logging.debug("This is RED's turn")
 
-        print("   1 2 3 4 5 6 7 8")
+        logging.debug("   1 2 3 4 5 6 7 8")
         for i in range(8):
-            print(i + 1, end=" ")
+            logging.debug(str(i + 1) + " ")
             for j in range(8):
                 if self.board[i][j] == Player.EMPTY:
-                    print(".", end=" ")
+                    logging.debug(". ")
                 elif self.board[i][j] == Player.BLUE:
-                    print("#", end=" ")
+                    logging.debug("# ")
                 else:
-                    print("0", end=" ")
-            print()
+                    logging.debug("0 ")
+            logging.debug("\n")
 
     def make_move(self, p: Point):
         if not p.is_valid():
-            print("Invalid move: Out of bounds")
+            logging.warning("Invalid move: Out of bounds")
             return 0
         if not self.checkBoard(p, Player.EMPTY):
-            print("Invalid move: Already occupied")
+            logging.warning("Invalid move: Already occupied")
             return 0
 
         self.board[p.x][p.y] = self.current_player
@@ -344,7 +337,7 @@ class MetaSquares:
         if not self.is_first_log:
             logging.info("\033[A                             \033[A")
 
-        print(
+        logging.info(
             "Move: {}/64 | Blue Score: {} | Red Score: {}".format(
                 self.move_count, self.board.BlueScore, self.board.RedScore
             )
@@ -365,7 +358,7 @@ class MetaSquares:
                 if delta > self.time_limit:
                     raise FunctionTimedOut
             except FunctionTimedOut:
-                print("AI took too long to respond")
+                logging.info("AI took too long to respond")
                 if self.board.current_player == Player.BLUE:
                     self.gameState = State.RED_WIN
                 else:
@@ -377,21 +370,21 @@ class MetaSquares:
                 self.time_saved_AI2 += 5 - delta
 
             if keyboard.is_pressed("ctrl+alt+shift+q"):
-                print("Game terminated")
+                logging.warning("Game terminated")
                 exit(0)
 
             if self.board.make_move(p):
                 self.move_count += 1
             else:
-                print()
-                print("AI made an invalid move: {}".format(p))
+                logging.error("\n")
+                logging.error("AI made an invalid move: {}".format(p))
                 if self.board.current_player == Player.BLUE:
-                    print("OFFENDER: AI1")
+                    logging.error("OFFENDER: AI1")
                 else:
-                    print("OFFENDER: AI2")
-                print("DATA:")
-                print("AI1: " + str(self.AI1))
-                print("AI2: " + str(self.AI2))
+                    logging.error("OFFENDER: AI2")
+                logging.error("DATA:")
+                logging.error("AI1: " + str(self.AI1))
+                logging.error("AI2: " + str(self.AI2))
                 exit(1)
 
         if self.gameState == State.INCOMPLETE:
@@ -422,7 +415,7 @@ def restore_agents(gen: int) -> list[AI_Agent]:
         with open(config.TRANING_LOCATION + "gen_{}.pickle".format(gen), "rb") as f:
             data = pickle.load(f)
     except FileNotFoundError:
-        print("Generation {} not found, starting fresh...\n\n".format(gen))
+        logging.warning("Generation {} not found, starting fresh...\n\n".format(gen))
         return []
 
     agents: list[AI_Agent] = []
@@ -432,6 +425,11 @@ def restore_agents(gen: int) -> list[AI_Agent]:
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(levelname)s %(asctime)s:\t %(message)s",
+        datefmt="%H:%M:%S",
+    )
     generation = 0
     sample_size = config.SAMPLE_SIZE
     persistent_agents = config.PERSISTENT_AGENTS
@@ -440,48 +438,45 @@ if __name__ == "__main__":
         agents.append(AI_Agent())  # baseline agent
     else:
         generation = config.START_GENERATION
-        print("Restored {} agents from genetaion {}".format(len(agents), generation))
+        logging.info(
+            "Restored {} agents from genetaion {}".format(len(agents), generation)
+        )
 
     while 1:
         start_time = perf_counter()
         generation += 1
-        print("#" * config.HEADER_SIZE)
-        print("Generation: {}".format(generation).center(config.HEADER_SIZE))
-        print(
-            "Time: {}".format(datetime.now().strftime("%d/%m/%y %H:%M:%S")).center(
-                config.HEADER_SIZE
-            )
-        )
-        print("#" * config.HEADER_SIZE)
+        logging.info(("#" * config.HEADER_SIZE))
+        logging.info("Generation: {}".format(generation).center(config.HEADER_SIZE))
+        logging.info(("#" * config.HEADER_SIZE))
 
         win_loss_table = [
             [State.DRAW for _ in range(sample_size)] for __ in range(sample_size)
         ]
         score = [0.0 for _ in range(sample_size)]
 
-        print("Breeding agents...")
+        logging.info("Breeding agents...")
         for i in range(len(agents) - 1):
             for j in range(i + 1, len(agents)):
                 child: AI_Agent = agents[i].breed(agents[j])
                 child.mutate_weights()
                 agents.append(child)
 
-        print("Agents: {}".format(len(agents)))
+        logging.info("Agents: {}\n".format(len(agents)))
 
-        print("Adding random agents to fill array...")
+        logging.info("Adding random agents to fill array...\n")
         while len(agents) < sample_size:
             agent = AI_Agent()
             agent.randomize_weights()
             agents.append(agent)
 
-        print("Playing games...")
+        logging.info("Playing games...")
         games_played = 0
         total_games = sample_size * sample_size - sample_size
         for i in range(len(agents)):
             for j in range(len(agents)):
                 if i == j:
                     continue
-                print(
+                logging.info(
                     "Playing game {}/{}: {} vs {}".format(
                         games_played, total_games, i, j
                     )
@@ -493,13 +488,13 @@ if __name__ == "__main__":
 
                 win_loss_table[i][j] = game.gameState
                 games_played += 1
-                print("State: {}\n".format(game.gameState.name))
+                logging.info("State: {}".format(game.gameState.name))
 
-        print("Games Complete")
+        logging.info("Games Complete")
         temp = [(i, score[i]) for i in range(len(score))]
         temp.sort(key=lambda x: x[1], reverse=True)
 
-        print("Top Agents:")
+        logging.info("Top Agents:")
         for i, _ in temp:
             wins = 0
             losses = 0
@@ -513,16 +508,16 @@ if __name__ == "__main__":
                     losses += 1
                 else:
                     draws += 1
-            print(agents[i])
-            print(
-                "Wins: {}, Losses: {}, Draws: {} Score: {}".format(
+            logging.info(str(agents[i]))
+            logging.info(
+                "Wins: {}, Losses: {}, Draws: {} Score: {}\n".format(
                     wins, losses, draws, score[i]
                 )
             )
 
         agents = [agents[i] for i, _ in temp[:persistent_agents]]
 
-        print("Saving agents...")
+        logging.info("\n\nSaving agents...")
         dump = [i.weights for i in agents]
         with open(
             config.TRANING_LOCATION + "gen_{}.pickle".format(generation), "wb+"
@@ -530,10 +525,13 @@ if __name__ == "__main__":
             pickle.dump(dump, f)
 
         elapsed_time = perf_counter() - start_time
-        print("#" * config.HEADER_SIZE)
-        print("GENERATION {} COMPLETE".format(generation).center(config.HEADER_SIZE))
-        print(
-            "TIME ELAPSED: {}".format(round(elapsed_time, 2)).center(config.HEADER_SIZE)
+        logging.info(("#" * config.HEADER_SIZE))
+        logging.info(
+            "GENERATION {} COMPLETE".format(generation).center(config.HEADER_SIZE)
         )
-        print("#" * config.HEADER_SIZE)
-        print("\n\n")
+        logging.info(
+            "TIME ELAPSED: {}".format(round(elapsed_time, 2)).center(
+                config.HEADER_SIZE
+            )
+        )
+        logging.info(("#" * config.HEADER_SIZE) + "\n\n\n")
