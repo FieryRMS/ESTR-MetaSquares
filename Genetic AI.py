@@ -422,7 +422,12 @@ def restore_agents(gen: int) -> list[AI_Agent]:
     if gen == -1:
         return []
     try:
-        with open(config.TRANING_LOCATION + "gen_{}.pickle".format(gen), "rb") as f:
+        # get latest file
+        files = sorted(
+            Path.glob(Path(config.TRANING_LOCATION), "gen_{}_*.pickle".format(gen))
+        )
+        logging.info("Restoring agents from {}".format(files[-1]))
+        with open(files[-1], "rb") as f:
             data = pickle.load(f)
     except FileNotFoundError:
         logging.warning("Generation {} not found, starting fresh...\n\n".format(gen))
