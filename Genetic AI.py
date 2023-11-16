@@ -499,7 +499,11 @@ if __name__ == "__main__":
                             generation, games_played, total_games, i, j
                         )
                     )
-                    gLogger.log_text("Playing game {}/{}: {} vs {}".format(games_played, total_games, i, j))  # type: ignore
+                    gLogger.log_text(  # type: ignore
+                        "GEN{}: Playing game {}/{}: {} vs {}".format(
+                            generation, games_played, total_games, i, j
+                        )
+                    )
                     game = MetaSquares(agents[i], agents[j])
                     game.game_loop()
                     score[i] += game.getScore(agents[i].player)
