@@ -519,9 +519,9 @@ if __name__ == "__main__":
                         speed = elapsed_time / games_played
                         Ts = (total_games - games_played) * speed
                         Tm = Ts // 60
-                        Ts = Ts % 60
+                        Ts = Ts - Tm * 60
                         Th = Tm // 60
-                        Tm = Tm % 60
+                        Tm = Tm - Th * 60
                     logging.info(
                         "GEN{} ETA: {}h {}m {}s | Playing game {}/{}: {} vs {}".format(
                             generation,
@@ -610,7 +610,7 @@ if __name__ == "__main__":
                 )
             )
             logging.info(("#" * config.HEADER_SIZE) + "\n\n\n")
-            gLogger.log_text("GENERATION {} COMPLETE".format(generation))  # type: ignore
+            gLogger.log_text("GENERATION {} COMPLETE | TIME ELAPSED: {}".format(generation, round(elapsed_time, 2)))  # type: ignore
         except KeyboardInterrupt:
             logging.info("Keyboard Interrupt")
             break
