@@ -439,6 +439,16 @@ def restore_agents(gen: int) -> list[AI_Agent]:
     return agents
 
 
+def calc_time(Ts: float):
+    if Ts <= 0:
+        Ts = 0
+    Tm = Ts // 60
+    Ts = Ts - Tm * 60
+    Th = Tm // 60
+    Tm = Tm - Th * 60
+    return (round(Th), round(Tm), round(Ts))
+
+
 if __name__ == "__main__":
     file_handler = logging.FileHandler(
         config.TRANING_LOCATION + "genetic_errors_{}.log".format(int(time()))
@@ -511,17 +521,12 @@ if __name__ == "__main__":
                 for j in range(len(agents)):
                     if i == j:
                         continue
-                    Ts = 0
-                    Tm = 0
-                    Th = 0
+                    (Ts, Tm, Th) = calc_time(0)
                     if games_played > 0:
                         elapsed_time = perf_counter() - start_time
                         speed = elapsed_time / games_played
                         Ts = (total_games - games_played) * speed
-                        Tm = Ts // 60
-                        Ts = Ts - Tm * 60
-                        Th = Tm // 60
-                        Tm = Tm - Th * 60
+                        (Ts, Tm, Th) = calc_time(Ts)
                     logging.info(
                         "GEN{} ETA: {}h {}m {}s | Playing game {}/{}: {} vs {}".format(
                             generation,
@@ -600,17 +605,21 @@ if __name__ == "__main__":
             with open(file_name, "wb+") as f:
                 pickle.dump(dump, f)
 
+            (Ts, Tm, Th) = calc_time(elapsed_time)
+
             logging.info(("#" * config.HEADER_SIZE))
             logging.info(
                 "GENERATION {} COMPLETE".format(generation).center(config.HEADER_SIZE)
             )
             logging.info(
-                "TIME ELAPSED: {}".format(round(elapsed_time, 2)).center(
-                    config.HEADER_SIZE
-                )
+                "TIME ELAPSED: {}h {}m {}s".format(round(Th), round(Tm), round(Ts))
             )
             logging.info(("#" * config.HEADER_SIZE) + "\n\n\n")
-            gLogger.log_text("GENERATION {} COMPLETE | TIME ELAPSED: {}".format(generation, round(elapsed_time, 2)))  # type: ignore
+            gLogger.log_text(  # type: ignore
+                "GENERATION {} COMPLETE | TIME ELAPSED: {}h {}m {}s".format(
+                    generation, round(Th), round(Tm), round(Ts)
+                )
+            )
         except KeyboardInterrupt:
             logging.info("Keyboard Interrupt")
             break
