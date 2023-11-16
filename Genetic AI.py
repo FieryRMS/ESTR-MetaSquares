@@ -298,6 +298,9 @@ class AI_Agent:
             child.weights[i] = random.choice([self.weights[i], other.weights[i]])
         return child
 
+    def copy(self):
+        return AI_Agent(self.weights)
+
     def reset_state(self, LIB: ctypes.CDLL):
         self.lib = LIB
         c_test_weights = (ctypes.c_double * len(self.weights))(*self.weights)
@@ -470,6 +473,11 @@ if __name__ == "__main__":
             score = [0.0 for _ in range(sample_size)]
 
             logging.info("Breeding agents...")
+
+            for i in range(persistent_agents):
+                child = agents[i].copy()
+                child.mutate_weights()
+                agents.append(child)
 
             for i in range(persistent_agents - 1):
                 for j in range(i + 1, persistent_agents):
