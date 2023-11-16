@@ -314,7 +314,8 @@ class AI_Agent:
         return Point(x)
 
     def __str__(self) -> str:
-        return str(self.weights)
+        # return as C style array
+        return "{" + ", ".join([str(i) for i in self.weights]) + "}"
 
 
 class MetaSquares:
@@ -411,7 +412,7 @@ class MetaSquares:
         else:
             avg_time_saved = self.time_saved_AI2 / self.move_count
 
-        return score + avg_time_saved * (self.time_multiplier / self.move_count)
+        return score + (avg_time_saved * self.time_multiplier) / self.move_count
 
 
 def restore_agents(gen: int) -> list[AI_Agent]:
