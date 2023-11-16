@@ -521,12 +521,12 @@ if __name__ == "__main__":
                 for j in range(len(agents)):
                     if i == j:
                         continue
-                    (Ts, Tm, Th) = calc_time(0)
+                    (Th, Tm, Ts) = calc_time(0)
                     if games_played > 0:
                         elapsed_time = perf_counter() - start_time
                         speed = elapsed_time / games_played
                         Ts = (total_games - games_played) * speed
-                        (Ts, Tm, Th) = calc_time(Ts)
+                        (Th, Tm, Ts) = calc_time(Ts)
                     logging.info(
                         "GEN{} ETA: {}h {}m {}s | Playing game {}/{}: {} vs {}".format(
                             generation,
@@ -605,7 +605,7 @@ if __name__ == "__main__":
             with open(file_name, "wb+") as f:
                 pickle.dump(dump, f)
 
-            (Ts, Tm, Th) = calc_time(elapsed_time)
+            (Th, Tm, Ts) = calc_time(elapsed_time)
 
             logging.info(("#" * config.HEADER_SIZE))
             logging.info(
