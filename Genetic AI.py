@@ -396,9 +396,9 @@ class MetaSquares:
 
     def getScore(self, player: Player):
         if player == Player.BLUE and self.gameState == State.RED_WIN:
-            return -100
+            return -200
         if player == Player.RED and self.gameState == State.RED_WIN:
-            return -100
+            return -200
 
         score = 100
         if self.gameState == State.DRAW:
@@ -406,9 +406,12 @@ class MetaSquares:
         if self.move_count == 0:
             return score
 
-        avg_time_saved = self.time_saved_AI1 / self.move_count
+        if player == Player.BLUE:
+            avg_time_saved = self.time_saved_AI1 / self.move_count
+        else:
+            avg_time_saved = self.time_saved_AI2 / self.move_count
 
-        return score + avg_time_saved * self.time_multiplier
+        return score + avg_time_saved * (self.time_multiplier / self.move_count)
 
 
 def restore_agents(gen: int) -> list[AI_Agent]:
