@@ -555,9 +555,10 @@ if __name__ == "__main__":
 
             logging.info("\n\nSaving agents...")
             dump = [i.weights for i in agents]
-            with open(
-                config.TRANING_LOCATION + "gen_{}.pickle".format(generation), "wb+"
-            ) as f:
+            file_name = config.TRANING_LOCATION + "gen_{}_{}.pickle".format(
+                generation, int(time())
+            )
+            with open(file_name, "wb+") as f:
                 pickle.dump(dump, f)
 
             elapsed_time = perf_counter() - start_time
