@@ -465,7 +465,6 @@ if __name__ == "__main__":
 
     while 1:
         try:
-            start_time = perf_counter()
             generation += 1
             logging.info(("#" * config.HEADER_SIZE))
             logging.info("Generation: {}".format(generation).center(config.HEADER_SIZE))
@@ -507,18 +506,44 @@ if __name__ == "__main__":
             logging.info("Playing games...")
             games_played = 0
             total_games = sample_size * sample_size - sample_size
+            start_time = perf_counter()
             for i in range(len(agents)):
                 for j in range(len(agents)):
                     if i == j:
                         continue
+                    Ts = 0
+                    Tm = 0
+                    Th = 0
+                    if games_played > 0:
+                        elapsed_time = perf_counter() - start_time
+                        speed = elapsed_time / games_played
+                        Ts = (total_games - games_played) * speed
+                        Tm = Ts // 60
+                        Ts = Ts % 60
+                        Th = Tm // 60
+                        Tm = Tm % 60
                     logging.info(
-                        "GEN{}: Playing game {}/{}: {} vs {}".format(
-                            generation, games_played, total_games, i, j
+                        "GEN{} ETA: {}h {}m {}s | Playing game {}/{}: {} vs {}".format(
+                            generation,
+                            round(Th),
+                            round(Tm),
+                            round(Ts),
+                            games_played,
+                            total_games,
+                            i,
+                            j,
                         )
                     )
                     gLogger.log_text(  # type: ignore
-                        "GEN{}: Playing game {}/{}: {} vs {}".format(
-                            generation, games_played, total_games, i, j
+                        "GEN{} ETA: {}h {}m {}s | Playing game {}/{}: {} vs {}".format(
+                            generation,
+                            round(Th),
+                            round(Tm),
+                            round(Ts),
+                            games_played,
+                            total_games,
+                            i,
+                            j,
                         )
                     )
                     game = MetaSquares(agents[i], agents[j])
@@ -529,6 +554,7 @@ if __name__ == "__main__":
                     win_loss_table[i][j] = game.gameState
                     games_played += 1
                     logging.info("State: {}".format(game.gameState.name))
+            elapsed_time = perf_counter() - start_time
 
             logging.info("Games Complete")
             temp = [(i, score[i]) for i in range(len(score))]
@@ -574,7 +600,6 @@ if __name__ == "__main__":
             with open(file_name, "wb+") as f:
                 pickle.dump(dump, f)
 
-            elapsed_time = perf_counter() - start_time
             logging.info(("#" * config.HEADER_SIZE))
             logging.info(
                 "GENERATION {} COMPLETE".format(generation).center(config.HEADER_SIZE)
