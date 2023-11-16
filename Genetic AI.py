@@ -401,7 +401,7 @@ class MetaSquares:
     def getScore(self, player: Player):
         if player == Player.BLUE and self.gameState == State.RED_WIN:
             return -200
-        if player == Player.RED and self.gameState == State.RED_WIN:
+        if player == Player.RED and self.gameState == State.BLUE_WIN:
             return -200
 
         score = 100
