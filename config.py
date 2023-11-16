@@ -1,5 +1,5 @@
 TRANING_LOCATION = "./training_data/"
-START_GENERATION = 3
+START_GENERATION = 4
 
 DLLLOC1 = "./.exes/ai_player1.dll"
 DLLLOC2 = "./.exes/ai_player2.dll"
