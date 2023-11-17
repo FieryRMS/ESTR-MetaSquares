@@ -323,7 +323,6 @@ class AI_Agent:
 
 class MetaSquares:
     time_limit = config.TIME_LIMIT
-    time_multiplier = config.SAVED_TIME_MULTIPLIER
 
     def __init__(self, AI1: AI_Agent, AI2: AI_Agent) -> None:
         self.AI1 = AI1
@@ -415,7 +414,7 @@ class MetaSquares:
         else:
             avg_time_saved = self.time_saved_AI2 / self.move_count
 
-        return (score, avg_time_saved * self.time_multiplier)
+        return (score, avg_time_saved)
 
 
 def restore_agents(gen: int) -> list[AI_Agent]:
