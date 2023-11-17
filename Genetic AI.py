@@ -11,6 +11,7 @@ import logging
 import google.cloud.logging
 
 from pathlib import Path
+import matplotlib.pyplot as plt
 
 Path(config.TRANING_LOCATION).mkdir(parents=True, exist_ok=True)
 
@@ -272,8 +273,8 @@ class AI_Agent:
             6.0,
             7.81,
         ]
-        if weights != None:
-            self.weights = weights
+        if weights is not None:
+            self.weights = weights.copy()
         self.player = Player.BLUE
         self.lib: ctypes.CDLL | None = None
 
@@ -570,22 +571,65 @@ if __name__ == "__main__":
             temp.sort(key=lambda x: x[1], reverse=True)
 
             logging.info("Top Agents:")
+            colLables = [str(i) for i in range(sample_size)]
+            colLables.extend(
+                ["Score", "Time Saved", "Wins", "Losses", "Draws", "Win %"]
+            )
+            rowLables: list[str] = []
+            cellColours: list[list[str]] = [
+                ["#FFFFFF" for _ in range(sample_size + 6)] for __ in range(sample_size)
+            ]
+            cellText: list[list[str]] = [
+                [" " for _ in range(sample_size + 6)] for __ in range(sample_size)
+            ]
+
             with open(
-                config.TRANING_LOCATION + "gen_{}_stats.log".format(generation), "w+"
+                config.TRANING_LOCATION
+                + "gen_{}_stats_{}.log".format(generation, int(time())),
+                "w+",
             ) as f:
                 for i, _ in temp:
+                    rowLables.append(str(i))
                     wins = 0
                     losses = 0
                     draws = 0
                     for j in range(sample_size):
                         if i == j:
+                            cellColours[i][j] = "#FF0000"
                             continue
-                        if win_loss_table[i][j] == State.BLUE_WIN:
-                            wins += 1
-                        elif win_loss_table[i][j] == State.RED_WIN:
-                            losses += 1
-                        else:
-                            draws += 1
+                        match win_loss_table[i][j]:
+                            case State.BLUE_WIN:
+                                wins += 1
+                                cellColours[i][j] = "#00FF00"
+                            case State.RED_WIN:
+                                losses += 1
+                                cellColours[i][j] = "#FF0000"
+                            case State.DRAW:
+                                draws += 1
+                                cellColours[i][j] = "#0000FF"
+                            case _:
+                                pass
+                        match win_loss_table[j][i]:
+                            case State.BLUE_WIN:
+                                losses += 1
+                                cellColours[i][j] = "#FF0000"
+                            case State.RED_WIN:
+                                wins += 1
+                                cellColours[i][j] = "#00FF00"
+                            case State.DRAW:
+                                draws += 1
+                                cellColours[i][j] = "#0000FF"
+                            case _:
+                                pass
+                        cellText[i][j] = str(win_loss_table[i][j].name)
+                        cellText[j][i] = str(win_loss_table[j][i].name)
+                    cellText[i][sample_size] = str(score[i][0])
+                    cellText[i][sample_size + 1] = str(score[i][1])
+                    cellText[i][sample_size + 2] = str(wins)
+                    cellText[i][sample_size + 3] = str(losses)
+                    cellText[i][sample_size + 4] = str(draws)
+                    cellText[i][sample_size + 5] = str(round(wins / (wins + losses), 2))
+
                     logging.info(str(agents[i]))
                     logging.info(
                         "Wins: {}, Losses: {}, Draws: {} Score: {}\n".format(
@@ -598,6 +642,23 @@ if __name__ == "__main__":
                             wins, losses, draws, score[i]
                         )
                     )
+
+            try:
+                fig, ax = plt.subplots()  # type: ignore
+                ax.axis("off")
+                table = ax.table(
+                    cellText=cellText,
+                    cellColours=cellColours,
+                    colLabels=colLables,
+                    rowLabels=rowLables,
+                    loc="center",
+                )
+                ax.set_title("Generation {}".format(generation), fontweight="bold")
+                fig.tight_layout()
+                fig.savefig(config.TRANING_LOCATION + "gen_{}_stats_{}.png".format(generation, int(time())))  # type: ignore
+                plt.close(fig)
+            except Exception as e:
+                logging.warning("Could not save figure: {}".format(e))
 
             agents = [agents[i] for i, _ in temp[:persistent_agents]]
 
