@@ -567,7 +567,7 @@ ll getMove(const int player,
             deltaScore = deltaScore * isMaximizing * 10;
             if (deltaScore) deltaScore -= depth * isMaximizing;
 
-            int BestSequenceRet[64];
+            int BestSequenceRet[64] = {};
 
             ll tempScore = getMove(
                 player, GameBoard, depth + 1, score + deltaScore, newBlueScore,
