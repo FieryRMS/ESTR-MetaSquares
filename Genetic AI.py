@@ -14,8 +14,8 @@ from pathlib import Path
 
 Path(config.TRANING_LOCATION).mkdir(parents=True, exist_ok=True)
 
-client = google.cloud.logging.Client()
-gLogger = client.logger("Genetic_AI")  # type: ignore
+gLogger = lambda *args, **kwargs: None  # type: ignore
+gLogger.log_text = lambda *args, **kwargs: None  # type: ignore
 
 LIB1 = ctypes.CDLL(config.DLLLOC1)
 LIB1.ai_player.argtypes = [
@@ -399,23 +399,23 @@ class MetaSquares:
             self.log_status()
 
     def getScore(self, player: Player):
-        if player == Player.BLUE and self.gameState == State.RED_WIN:
-            return -200
-        if player == Player.RED and self.gameState == State.BLUE_WIN:
-            return -200
+        if (player == Player.BLUE and self.gameState == State.RED_WIN) or (
+            player == Player.RED and self.gameState == State.BLUE_WIN
+        ):
+            return (-10.0, 0.0)
 
-        score = 100
+        score = 10.0
         if self.gameState == State.DRAW:
-            score = 0
+            score = 0.0
         if self.move_count == 0:
-            return score
+            return (score, 0.0)
 
         if player == Player.BLUE:
             avg_time_saved = self.time_saved_AI1 / self.move_count
         else:
             avg_time_saved = self.time_saved_AI2 / self.move_count
 
-        return score + (avg_time_saved * self.time_multiplier) / self.move_count
+        return (score, avg_time_saved * self.time_multiplier)
 
 
 def restore_agents(gen: int) -> list[AI_Agent]:
@@ -460,6 +460,11 @@ if __name__ == "__main__":
         datefmt="%H:%M:%S",
         handlers=[logging.StreamHandler(), file_handler],
     )
+    try:
+        client = google.cloud.logging.Client()
+        gLogger = client.logger("Genetic_AI")  # type: ignore
+    except Exception as e:
+        logging.warning("Could not connect to Google Cloud Logging: {}".format(e))
 
     generation = 0
     sample_size = config.SAMPLE_SIZE
@@ -484,7 +489,7 @@ if __name__ == "__main__":
             win_loss_table = [
                 [State.DRAW for _ in range(sample_size)] for __ in range(sample_size)
             ]
-            score = [0.0 for _ in range(sample_size)]
+            score = [(0.0, 0.0) for _ in range(sample_size)]
 
             logging.info("Breeding agents...")
 
@@ -553,8 +558,8 @@ if __name__ == "__main__":
                     )
                     game = MetaSquares(agents[i], agents[j])
                     game.game_loop()
-                    score[i] += game.getScore(agents[i].player)
-                    score[j] += game.getScore(agents[j].player)
+                    score[i] = tuple(map(sum, zip(score[i], game.getScore(agents[i].player))))  # type: ignore
+                    score[j] = tuple(map(sum, zip(score[j], game.getScore(agents[j].player))))  # type: ignore
 
                     win_loss_table[i][j] = game.gameState
                     games_played += 1
