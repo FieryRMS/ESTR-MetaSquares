@@ -573,9 +573,9 @@ if __name__ == "__main__":
                 + "gen_{}_dataset_{}.pickle".format(generation, int(time())),
                 "wb+",
             ) as f:
-                data: list[tuple[AI_Agent, tuple[float, float], list[State]]] = []
+                data: list[tuple[list[float], tuple[float, float], list[State]]] = []
                 for i in range(len(agents)):
-                    data.append((agents[i], score[i], win_loss_table[i]))
+                    data.append((agents[i].weights, score[i], win_loss_table[i]))
                 pickle.dump(data, f)
 
             temp = [(i, score[i]) for i in range(len(score))]
