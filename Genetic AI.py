@@ -1,6 +1,7 @@
 import ctypes
 from enum import Enum
 import random
+import traceback
 
 from time import perf_counter, time
 
@@ -657,5 +658,6 @@ if __name__ == "__main__":
             break
         except Exception as e:
             logging.error("ERROR: {}".format(e))
+            logging.error(traceback.format_exc())
             gLogger.log_text("ERROR: {}".format(e), severity="ERROR")  # type: ignore
             break
