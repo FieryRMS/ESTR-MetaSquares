@@ -561,7 +561,9 @@ if __name__ == "__main__":
             total_games = sample_size * sample_size - sample_size
             start_time = perf_counter()
             queue: "mp.Queue[tuple[int, int, MetaSquares]]" = mp.Queue()
-            process_list: list[mp.Process] = []
+            process_list: list[mp.Process | None] = [
+                None for _ in range(config.PROCESS_COUNT - 1)
+            ]
             for i in range(len(agents)):
                 for j in range(len(agents)):
                     if i == j:
@@ -603,30 +605,31 @@ if __name__ == "__main__":
                         win_loss_table[x][y] = game.gameState
                         games_played += 1
 
-                    process_list = [p for p in process_list if p.is_alive()]
-
-                    if len(process_list) < config.PROCESS_COUNT - 1:
-                        process_list.append(
-                            mp.Process(
+                    flag = True
+                    for i in range(config.PROCESS_COUNT - 1):
+                        if process_list[i] is None or not process_list[i].is_alive():  # type: ignore
+                            process_list[i] = mp.Process(
                                 target=worker,
                                 args=(
                                     agents[i],
                                     agents[j],
-                                    LIBS[len(process_list) * 2],
-                                    LIBS[len(process_list) * 2 + 1],
+                                    LIBS[i * 2],
+                                    LIBS[i * 2 + 1],
                                     i,
                                     j,
                                     queue,
                                 ),
                             )
-                        )
-                        process_list[-1].start()
-                    else:
+                            process_list[i].start()  # type: ignore
+                            flag = False
+                            break
+
+                    if flag:
                         game = worker(
                             agents[i],
                             agents[j],
-                            LIBS[len(process_list) * 2],
-                            LIBS[len(process_list) * 2 + 1],
+                            LIBS[(config.PROCESS_COUNT - 1) * 2],
+                            LIBS[(config.PROCESS_COUNT - 1) * 2 + 1],
                             i,
                             j,
                             None,
@@ -643,6 +646,8 @@ if __name__ == "__main__":
                             logging.info("State: {}".format(game.gameState.name))
 
             for i in process_list:
+                if i is None:
+                    continue
                 i.join()
                 while not queue.empty():
                     (x, y, game) = queue.get()
