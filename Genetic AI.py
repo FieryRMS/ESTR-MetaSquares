@@ -425,6 +425,8 @@ def restore_agents(gen: int) -> list[AI_Agent]:
         files = sorted(
             Path.glob(Path(config.TRANING_LOCATION), "gen_{}_*.pickle".format(gen))
         )
+        if len(files) == 0:
+            raise FileNotFoundError
         logging.info("Restoring agents from {}".format(files[-1]))
         with open(files[-1], "rb") as f:
             data = pickle.load(f)
