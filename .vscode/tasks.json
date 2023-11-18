@@ -64,15 +64,10 @@
                 "-DR_LOCAL",
                 "-shared",
                 "-o",
-                ".exes/ai_player1.dll",
+                ".exes/ai_player.dll",
                 "-fPIC",
                 "-O3",
                 "ai_player_1155205640.c",
-                ";",
-                "cp",
-                "-fr",
-                ".exes/ai_player1.dll",
-                ".exes/ai_player2.dll",
             ],
             "options": {
                 "cwd": "${workspaceFolder}"

@@ -10,31 +10,13 @@ import config
 from func_timeout import func_set_timeout, FunctionTimedOut  # type: ignore
 import logging
 import google.cloud.logging
+import multiprocessing as mp
+import shutil
 
 from pathlib import Path
 
-Path(config.TRANING_LOCATION).mkdir(parents=True, exist_ok=True)
-
 gLogger = lambda *args, **kwargs: None  # type: ignore
 gLogger.log_text = lambda *args, **kwargs: None  # type: ignore
-
-LIB1 = ctypes.CDLL(config.DLLLOC1)
-LIB1.ai_player.argtypes = [
-    ctypes.c_int,
-    ctypes.POINTER(ctypes.c_int),
-]
-LIB1.ai_player.restype = ctypes.c_int
-LIB1.reset_state.argtypes = [ctypes.POINTER(ctypes.c_double)]
-LIB1.reset_state.restype = None
-
-LIB2 = ctypes.CDLL(config.DLLLOC2)
-LIB2.ai_player.argtypes = [
-    ctypes.c_int,
-    ctypes.POINTER(ctypes.c_int),
-]
-LIB2.ai_player.restype = ctypes.c_int
-LIB2.reset_state.argtypes = [ctypes.POINTER(ctypes.c_double)]
-LIB2.reset_state.restype = None
 
 
 class Player(Enum):
@@ -275,11 +257,6 @@ class AI_Agent:
         ]
         if weights is not None:
             self.weights = weights.copy()
-        self.player = Player.BLUE
-        self.lib: ctypes.CDLL | None = None
-
-    def play_as(self, player: Player):
-        self.player = player
 
     def randomize_weights(self):
         for i in range(len(self.LIMITS)):  # ignore depth and dlogb for now
@@ -302,18 +279,13 @@ class AI_Agent:
     def copy(self):
         return AI_Agent(self.weights)
 
-    def reset_state(self, LIB: ctypes.CDLL):
-        self.lib = LIB
+    def set_LIB_state(self, LIB: ctypes.CDLL):
         c_test_weights = (ctypes.c_double * len(self.weights))(*self.weights)
-        self.lib.reset_state(c_test_weights)
+        LIB.reset_state(c_test_weights)
 
-    def get_move(self, board: MetaSquaresBoard):
-        if self.lib == None:
-            logging.error("ERROR: AI not initialized")
-            gLogger.log_text("ERROR: AI not initialized", severity="ERROR")  # type: ignore
-            exit(1)
+    def get_move(self, board: MetaSquaresBoard, player: Player, LIB: ctypes.CDLL):
         c_board = (ctypes.c_int * len(board.linear_board))(*board.linear_board)
-        x = self.lib.ai_player(self.player.value, c_board)
+        x = LIB.ai_player(player.value, c_board)
 
         return Point(x)
 
@@ -325,14 +297,16 @@ class AI_Agent:
 class MetaSquares:
     time_limit = config.TIME_LIMIT
 
-    def __init__(self, AI1: AI_Agent, AI2: AI_Agent) -> None:
-        self.AI1 = AI1
-        self.AI2 = AI2
+    def __init__(
+        self, AI1: AI_Agent, AI2: AI_Agent, LIB1: ctypes.CDLL, LIB2: ctypes.CDLL
+    ):
+        self.agent1 = AI1
+        self.agent2 = AI2
         self.board = MetaSquaresBoard()
-        self.AI1.play_as(Player.BLUE)
-        self.AI2.play_as(Player.RED)
-        self.AI1.reset_state(LIB1)
-        self.AI2.reset_state(LIB2)
+        self.Lib1 = LIB1
+        self.Lib2 = LIB2
+        self.agent1.set_LIB_state(self.Lib1)
+        self.agent2.set_LIB_state(self.Lib2)
         self.move_count = 0
         self.time_saved_AI1 = 0
         self.time_saved_AI2 = 0
@@ -340,10 +314,14 @@ class MetaSquares:
         self.is_first_log = True
 
     @func_set_timeout(time_limit)  # type: ignore
-    def request_move(self, AI: AI_Agent):
-        return AI.get_move(self.board)
+    def request_move(self, AI: AI_Agent, player: Player, LIB: ctypes.CDLL):
+        if self.board is None:
+            return Point(-1, -1)
+        return AI.get_move(self.board, player, LIB)
 
     def log_status(self):
+        if self.board is None:
+            return
         if not self.is_first_log:
             logging.info("\033[A                             \033[A")
 
@@ -355,14 +333,25 @@ class MetaSquares:
         self.is_first_log = False
 
     def game_loop(self):
+        if (
+            self.Lib1 is None
+            or self.Lib2 is None
+            or self.agent1 is None
+            or self.agent2 is None
+            or self.board is None
+        ):
+            logging.error("Libraries not initialized")
+            gLogger.log_text("Libraries not initialized", severity="ERROR")  # type: ignore
+            exit(1)
         while self.board.check_state() == State.INCOMPLETE:
-            self.log_status()
+            if config.PROCESS_COUNT == 1:  # type: ignore
+                self.log_status()
             try:
                 start_time = perf_counter()
                 if self.board.current_player == Player.BLUE:
-                    p = self.request_move(self.AI1)
+                    p = self.request_move(self.agent1, Player.BLUE, self.Lib1)
                 else:
-                    p = self.request_move(self.AI2)
+                    p = self.request_move(self.agent2, Player.RED, self.Lib2)
                 end_time = perf_counter()
                 delta = end_time - start_time
                 if delta > self.time_limit:
@@ -389,14 +378,21 @@ class MetaSquares:
                 else:
                     logging.error("OFFENDER: AI2")
                 logging.error("DATA:")
-                logging.error("AI1: " + str(self.AI1))
-                logging.error("AI2: " + str(self.AI2))
+                logging.error("AI1: " + str(self.agent1))
+                logging.error("AI2: " + str(self.agent2))
                 gLogger.log_text("AI made an invalid move: {}".format(p), severity="ERROR")  # type: ignore
                 exit(1)
 
         if self.gameState == State.INCOMPLETE:
             self.gameState = self.board.check_state()
-            self.log_status()
+            if config.PROCESS_COUNT == 1:  # type: ignore
+                self.log_status()
+
+        self.Lib1 = None
+        self.Lib2 = None
+        self.agent1 = None
+        self.agent2 = None
+        self.board = None
 
     def getScore(self, player: Player):
         if (player == Player.BLUE and self.gameState == State.RED_WIN) or (
@@ -451,7 +447,47 @@ def calc_time(Ts: float):
     return (round(Th), round(Tm), round(Ts))
 
 
+def setup_LIB(LIBLOC: str):
+    LIB = ctypes.CDLL(LIBLOC)
+    LIB.ai_player.argtypes = [
+        ctypes.c_int,
+        ctypes.POINTER(ctypes.c_int),
+    ]
+    LIB.ai_player.restype = ctypes.c_int
+    LIB.reset_state.argtypes = [ctypes.POINTER(ctypes.c_double)]
+    LIB.reset_state.restype = None
+    return LIB
+
+
+def worker(
+    agent1: AI_Agent,
+    agent2: AI_Agent,
+    LIBLOC1: str,
+    LIBLOC2: str,
+    i: int,
+    j: int,
+    queue: "mp.Queue[tuple[int, int, MetaSquares]] | None",
+):
+    LIB1 = setup_LIB(LIBLOC1)
+    LIB2 = setup_LIB(LIBLOC2)
+    game = MetaSquares(agent1, agent2, LIB1, LIB2)
+    game.game_loop()
+    if queue is not None:
+        queue.put((i, j, game))
+    else:
+        return game
+
+
 if __name__ == "__main__":
+    Path(config.TRANING_LOCATION).mkdir(parents=True, exist_ok=True)
+
+    LIBS: list[str] = []
+
+    for i in range(config.PROCESS_COUNT * 2):
+        dst = config.DLLLOC + config.DLLNAME.split(".")[0] + str(i) + ".dll"
+        shutil.copyfile(config.DLLLOC + config.DLLNAME, dst)
+        LIBS.append(dst)
+
     file_handler = logging.FileHandler(
         config.TRANING_LOCATION + "genetic_errors_{}.log".format(int(time()))
     )
@@ -524,6 +560,8 @@ if __name__ == "__main__":
             games_played = 0
             total_games = sample_size * sample_size - sample_size
             start_time = perf_counter()
+            queue: "mp.Queue[tuple[int, int, MetaSquares]]" = mp.Queue()
+            process_list: list[mp.Process] = []
             for i in range(len(agents)):
                 for j in range(len(agents)):
                     if i == j:
@@ -558,14 +596,59 @@ if __name__ == "__main__":
                             j,
                         )
                     )
-                    game = MetaSquares(agents[i], agents[j])
-                    game.game_loop()
-                    score[i] = tuple(map(sum, zip(score[i], game.getScore(agents[i].player))))  # type: ignore
-                    score[j] = tuple(map(sum, zip(score[j], game.getScore(agents[j].player))))  # type: ignore
+                    while not queue.empty():
+                        (x, y, game) = queue.get()
+                        score[x] = tuple(map(sum, zip(score[x], game.getScore(Player.BLUE))))  # type: ignore
+                        score[y] = tuple(map(sum, zip(score[y], game.getScore(Player.RED))))  # type: ignore
+                        win_loss_table[x][y] = game.gameState
+                        games_played += 1
 
-                    win_loss_table[i][j] = game.gameState
-                    games_played += 1
-                    logging.info("State: {}".format(game.gameState.name))
+                    process_list = [p for p in process_list if p.is_alive()]
+
+                    if len(process_list) < config.PROCESS_COUNT - 1:
+                        process_list.append(
+                            mp.Process(
+                                target=worker,
+                                args=(
+                                    agents[i],
+                                    agents[j],
+                                    LIBS[len(process_list) * 2],
+                                    LIBS[len(process_list) * 2 + 1],
+                                    i,
+                                    j,
+                                    queue,
+                                ),
+                            )
+                        )
+                        process_list[-1].start()
+                    else:
+                        game = worker(
+                            agents[i],
+                            agents[j],
+                            LIBS[len(process_list) * 2],
+                            LIBS[len(process_list) * 2 + 1],
+                            i,
+                            j,
+                            None,
+                        )
+                        if game is None:
+                            logging.error("Game returned None")
+                            gLogger.log_text("Game returned None", severity="ERROR")  # type: ignore
+                            exit(1)
+                        score[i] = tuple(map(sum, zip(score[i], game.getScore(Player.BLUE))))  # type: ignore
+                        score[j] = tuple(map(sum, zip(score[j], game.getScore(Player.RED))))  # type: ignore
+                        win_loss_table[i][j] = game.gameState
+                        games_played += 1
+                        if config.PROCESS_COUNT == 1:  # type: ignore
+                            logging.info("State: {}".format(game.gameState.name))
+
+            for i in process_list:
+                i.join()
+                while not queue.empty():
+                    (x, y, game) = queue.get()
+                    score[x] = tuple(map(sum, zip(score[x], game.getScore(Player.BLUE))))  # type: ignore
+                    score[y] = tuple(map(sum, zip(score[y], game.getScore(Player.RED))))  # type: ignore
+
             elapsed_time = perf_counter() - start_time
 
             logging.info("Games Complete")
