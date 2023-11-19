@@ -648,6 +648,21 @@ if __name__ == "__main__":
                             game.move_count,
                         )
                     )
+                    gLogger.log_text(  # type: ignore
+                        "GEN{:<2} ETA: {:>2}h {:>2}m {:>2}s | Game complete {:>5}/{:<5}: {:>3} vs {:<3} = {:<8} in {:<2} moves".format(
+                            generation,
+                            round(Th),
+                            round(Tm),
+                            round(Ts),
+                            games_played,
+                            total_games,
+                            i,
+                            j,
+                            game.gameState.name,
+                            game.move_count,
+                        )
+                    )
+                        
             elapsed_time = perf_counter() - start_time
 
             logging.info("Games Complete")
