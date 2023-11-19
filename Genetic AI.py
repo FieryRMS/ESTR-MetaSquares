@@ -11,6 +11,7 @@ from func_timeout import func_set_timeout, FunctionTimedOut  # type: ignore
 import logging
 import google.cloud.logging
 import multiprocessing as mp
+from multiprocessing.pool import AsyncResult
 import shutil
 
 from pathlib import Path
@@ -363,6 +364,11 @@ class MetaSquares:
                 else:
                     self.gameState = State.BLUE_WIN
                 break
+            except Exception as e:
+                logging.error("ERROR: {}".format(e))
+                logging.error(traceback.format_exc())
+                gLogger.log_text("ERROR: {}".format(e), severity="ERROR") # type: ignore
+                raise e
             if self.board.current_player == Player.BLUE:
                 self.time_saved_AI1 += 5 - delta
             else:
@@ -466,16 +472,26 @@ def worker(
     LIBLOC2: str,
     i: int,
     j: int,
-    queue: "mp.Queue[tuple[int, int, MetaSquares]] | None",
+    lib: int,
 ):
-    LIB1 = setup_LIB(LIBLOC1)
-    LIB2 = setup_LIB(LIBLOC2)
-    game = MetaSquares(agent1, agent2, LIB1, LIB2)
-    game.game_loop()
-    if queue is not None:
-        queue.put((i, j, game))
-    else:
-        return game
+    try:
+        LIB1 = setup_LIB(LIBLOC1)
+        LIB2 = setup_LIB(LIBLOC2)
+        game = MetaSquares(agent1, agent2, LIB1, LIB2)
+        game.game_loop()
+    except Exception as e:
+        logging.error("ERROR: {}".format(e))
+        logging.error(traceback.format_exc())
+        gLogger.log_text("ERROR: {}".format(e), severity="ERROR") # type: ignore
+        raise e
+    return game, i, j, lib
+
+
+def get_eta(games_played: float, total_games: float, start_time: float):
+    elapsed_time = perf_counter() - start_time
+    speed = games_played / elapsed_time
+    eta = (total_games - games_played) / speed
+    return eta
 
 
 if __name__ == "__main__":
@@ -524,11 +540,6 @@ if __name__ == "__main__":
             logging.info(("#" * config.HEADER_SIZE))
             gLogger.log_text("GENERATION {} STARTED".format(generation))  # type: ignore
 
-            win_loss_table = [
-                [State.DRAW for _ in range(sample_size)] for __ in range(sample_size)
-            ]
-            score = [(0.0, 0.0) for _ in range(sample_size)]
-
             logging.info("Breeding agents...")
 
             for i in range(persistent_agents):
@@ -558,104 +569,85 @@ if __name__ == "__main__":
 
             logging.info("Playing games...")
             games_played = 0
+            win_loss_table = [
+                [State.DRAW for _ in range(sample_size)] for __ in range(sample_size)
+            ]
+            score = [(0.0, 0.0) for _ in range(sample_size)]
             total_games = sample_size * sample_size - sample_size
             start_time = perf_counter()
-            queue: "mp.Queue[tuple[int, int, MetaSquares]]" = mp.Queue()
-            process_list: list[mp.Process | None] = [
-                None for _ in range(config.PROCESS_COUNT - 1)
-            ]
-            for i in range(len(agents)):
-                for j in range(len(agents)):
-                    if i == j:
-                        continue
-                    (Th, Tm, Ts) = calc_time(0)
-                    if games_played > 0:
-                        elapsed_time = perf_counter() - start_time
-                        speed = elapsed_time / games_played
-                        Ts = (total_games - games_played) * speed
-                        (Th, Tm, Ts) = calc_time(Ts)
-                    logging.info(
-                        "GEN{} ETA: {}h {}m {}s | Playing game {}/{}: {} vs {}".format(
-                            generation,
-                            round(Th),
-                            round(Tm),
-                            round(Ts),
-                            games_played,
-                            total_games,
-                            i,
-                            j,
+            with mp.Pool(processes=config.PROCESS_COUNT) as pool:
+
+                def task_gen():
+                    for i in range(len(agents)):
+                        for j in range(len(agents)):
+                            if i == j:
+                                continue
+                            yield i, j
+
+                nxt_task = task_gen()
+                result_list: list[AsyncResult[tuple[MetaSquares, int, int, int]]] = []
+
+                def add_task(lib: int, i: int, j: int):
+                    Libloc1 = LIBS[2 * lib]
+                    Libloc2 = LIBS[2 * lib + 1]
+                    result_list.append(
+                        pool.apply_async(
+                            worker,
+                            args=[
+                                agents[i],
+                                agents[j],
+                                Libloc1,
+                                Libloc2,
+                                i,
+                                j,
+                                lib,
+                            ],
+                            callback=call_back,
                         )
                     )
-                    gLogger.log_text(  # type: ignore
-                        "GEN{} ETA: {}h {}m {}s | Playing game {}/{}: {} vs {}".format(
-                            generation,
-                            round(Th),
-                            round(Tm),
-                            round(Ts),
-                            games_played,
-                            total_games,
-                            i,
-                            j,
-                        )
-                    )
-                    while not queue.empty():
-                        (x, y, game) = queue.get()
-                        score[x] = tuple(map(sum, zip(score[x], game.getScore(Player.BLUE))))  # type: ignore
-                        score[y] = tuple(map(sum, zip(score[y], game.getScore(Player.RED))))  # type: ignore
-                        win_loss_table[x][y] = game.gameState
-                        games_played += 1
 
-                    flag = True
-                    for p in range(config.PROCESS_COUNT - 1):
-                        if process_list[p] is None or not process_list[p].is_alive():  # type: ignore
-                            process_list[p] = mp.Process(
-                                target=worker,
-                                args=(
-                                    agents[i],
-                                    agents[j],
-                                    LIBS[p * 2],
-                                    LIBS[p * 2 + 1],
-                                    i,
-                                    j,
-                                    queue,
-                                ),
-                            )
-                            process_list[p].start()  # type: ignore
-                            flag = False
-                            break
+                def call_back(args: tuple[MetaSquares, int, int, int]):
+                    try:
+                        (i, j) = next(nxt_task)
+                    except StopIteration:
+                        return
+                    add_task(args[3], i, j)
 
-                    if flag:
-                        game = worker(
-                            agents[i],
-                            agents[j],
-                            LIBS[(config.PROCESS_COUNT - 1) * 2],
-                            LIBS[(config.PROCESS_COUNT - 1) * 2 + 1],
-                            i,
-                            j,
-                            None,
-                        )
-                        if game is None:
-                            logging.error("Game returned None")
-                            gLogger.log_text("Game returned None", severity="ERROR")  # type: ignore
-                            exit(1)
-                        score[i] = tuple(map(sum, zip(score[i], game.getScore(Player.BLUE))))  # type: ignore
-                        score[j] = tuple(map(sum, zip(score[j], game.getScore(Player.RED))))  # type: ignore
-                        win_loss_table[i][j] = game.gameState
-                        games_played += 1
-                        if config.PROCESS_COUNT == 1:  # type: ignore
-                            logging.info("State: {}".format(game.gameState.name))
+                for lib in range(config.PROCESS_COUNT):
+                    try:
+                        (i, j) = next(nxt_task)
+                    except StopIteration:
+                        break
+                    add_task(lib, i, j)
 
-            for p in process_list:
-                if p is None:
-                    continue
-                p.join()
-                while not queue.empty():
-                    (x, y, game) = queue.get()
-                    score[x] = tuple(map(sum, zip(score[x], game.getScore(Player.BLUE))))  # type: ignore
-                    score[y] = tuple(map(sum, zip(score[y], game.getScore(Player.RED))))  # type: ignore
-                    win_loss_table[x][y] = game.gameState
+                while len(result_list) > 0:
+                    try:
+                        (game, i, j, lib) = result_list.pop(0).get()
+                    except Exception as e:
+                        logging.error("ERROR: {}".format(e))
+                        logging.error(traceback.format_exc())
+                        gLogger.log_text("ERROR: {}".format(e), severity="ERROR")  # type: ignore
+                        exit(1)
+                    score[i] = tuple(map(sum, zip(score[i], game.getScore(Player.BLUE))))  # type: ignore
+                    score[j] = tuple(map(sum, zip(score[j], game.getScore(Player.RED))))  # type: ignore
                     games_played += 1
-
+                    win_loss_table[i][j] = game.gameState
+                    eta = get_eta(games_played, total_games, start_time)
+                    (Th, Tm, Ts) = calc_time(eta)
+                    logging.info(
+                        "GEN{:<2} ETA: {:>2}h {:>2}m {:>2}s | Game complete {:>5}/{:<5}: {:>3} vs {:<3} = {:<8} in {:<2} moves".format(
+                            generation,
+                            round(Th),
+                            round(Tm),
+                            round(Ts),
+                            games_played,
+                            total_games,
+                            i,
+                            j,
+                            game.gameState.name,
+                            game.move_count,
+                        )
+                    )
             elapsed_time = perf_counter() - start_time
 
             logging.info("Games Complete")
