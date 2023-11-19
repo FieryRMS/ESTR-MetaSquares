@@ -606,9 +606,9 @@ if __name__ == "__main__":
                         games_played += 1
 
                     flag = True
-                    for i in range(config.PROCESS_COUNT - 1):
-                        if process_list[i] is None or not process_list[i].is_alive():  # type: ignore
-                            process_list[i] = mp.Process(
+                    for p in range(config.PROCESS_COUNT - 1):
+                        if process_list[p] is None or not process_list[p].is_alive():  # type: ignore
+                            process_list[p] = mp.Process(
                                 target=worker,
                                 args=(
                                     agents[i],
@@ -620,7 +620,7 @@ if __name__ == "__main__":
                                     queue,
                                 ),
                             )
-                            process_list[i].start()  # type: ignore
+                            process_list[p].start()  # type: ignore
                             flag = False
                             break
 
@@ -645,14 +645,16 @@ if __name__ == "__main__":
                         if config.PROCESS_COUNT == 1:  # type: ignore
                             logging.info("State: {}".format(game.gameState.name))
 
-            for i in process_list:
-                if i is None:
+            for p in process_list:
+                if p is None:
                     continue
-                i.join()
+                p.join()
                 while not queue.empty():
                     (x, y, game) = queue.get()
                     score[x] = tuple(map(sum, zip(score[x], game.getScore(Player.BLUE))))  # type: ignore
                     score[y] = tuple(map(sum, zip(score[y], game.getScore(Player.RED))))  # type: ignore
+                    win_loss_table[x][y] = game.gameState
+                    games_played += 1
 
             elapsed_time = perf_counter() - start_time
 
