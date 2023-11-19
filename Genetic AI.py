@@ -613,8 +613,8 @@ if __name__ == "__main__":
                                 args=(
                                     agents[i],
                                     agents[j],
-                                    LIBS[i * 2],
-                                    LIBS[i * 2 + 1],
+                                    LIBS[p * 2],
+                                    LIBS[p * 2 + 1],
                                     i,
                                     j,
                                     queue,
