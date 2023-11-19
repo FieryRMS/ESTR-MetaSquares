@@ -426,7 +426,7 @@ def restore_agents(gen: int) -> list[AI_Agent]:
     try:
         # get latest file
         files = sorted(
-            Path.glob(Path(config.TRANING_LOCATION), "gen_{}_*.pickle".format(gen))
+            Path.glob(Path(config.TRANING_LOCATION), "gen_{}_[0-9]*.pickle".format(gen))
         )
         if len(files) == 0:
             raise FileNotFoundError
