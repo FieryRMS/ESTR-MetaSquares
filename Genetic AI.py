@@ -258,6 +258,13 @@ class AI_Agent:
         ]
         if weights is not None:
             self.weights = weights.copy()
+        self.score: tuple[float, float] = (0.0, 0.0)
+
+    def add_score(self, score: tuple[float, float]):
+        self.score = (self.score[0] + score[0], self.score[1] + score[1])
+
+    def reset_score(self):
+        self.score = (0.0, 0.0)
 
     def randomize_weights(self):
         for i in range(len(self.LIMITS)):  # ignore depth and dlogb for now
@@ -367,7 +374,7 @@ class MetaSquares:
             except Exception as e:
                 logging.error("ERROR: {}".format(e))
                 logging.error(traceback.format_exc())
-                gLogger.log_text("ERROR: {}".format(e), severity="ERROR") # type: ignore
+                gLogger.log_text("ERROR: {}".format(e), severity="ERROR")  # type: ignore
                 raise e
             if self.board.current_player == Player.BLUE:
                 self.time_saved_AI1 += 5 - delta
@@ -482,7 +489,7 @@ def worker(
     except Exception as e:
         logging.error("ERROR: {}".format(e))
         logging.error(traceback.format_exc())
-        gLogger.log_text("ERROR: {}".format(e), severity="ERROR") # type: ignore
+        gLogger.log_text("ERROR: {}".format(e), severity="ERROR")  # type: ignore
         raise e
     return game, i, j, lib
 
@@ -492,6 +499,29 @@ def get_eta(games_played: float, total_games: float, start_time: float):
     speed = games_played / elapsed_time
     eta = (total_games - games_played) / speed
     return eta
+
+
+def get_agent(agents: list[AI_Agent]):
+    total_score: float = 0
+    for i in agents:
+        if i.score[0] < 0:
+            continue
+        total_score += i.score[0] + i.score[1]
+
+    if total_score == 0:
+        return random.choice(agents)
+    r = random.uniform(0, total_score)
+    for i in agents:
+        if i.score[0] < 0:
+            continue
+        r -= i.score[0] + i.score[1]
+        if r <= 0:
+            return i
+    return random.choice(agents)
+
+
+def get_agents(agents: list[AI_Agent]):
+    return (get_agent(agents), get_agent(agents))
 
 
 if __name__ == "__main__":
@@ -524,9 +554,7 @@ if __name__ == "__main__":
     sample_size = config.SAMPLE_SIZE
     persistent_agents = config.PERSISTENT_AGENTS
     agents: list[AI_Agent] = restore_agents(config.START_GENERATION)
-    if len(agents) == 0:
-        agents.append(AI_Agent())  # baseline agent
-    else:
+    if len(agents) != 0:
         generation = config.START_GENERATION
         logging.info(
             "Restored {} agents from genetaion {}".format(len(agents), generation)
@@ -542,16 +570,28 @@ if __name__ == "__main__":
 
             logging.info("Breeding agents...")
 
-            for i in range(persistent_agents):
-                child = agents[i].copy()
-                child.mutate_weights()
-                agents.append(child)
+            if len(agents) == 0:
+                logging.info("Adding random agents to fill array...\n")
+                while len(agents) < sample_size:
+                    agent = AI_Agent()
+                    agent.randomize_weights()
+                    agents.append(agent)
 
-            for i in range(persistent_agents - 1):
-                for j in range(i + 1, persistent_agents):
-                    child: AI_Agent = agents[i].breed(agents[j])
-                    child.mutate_weights()
-                    agents.append(child)
+            as_agents = (config.SAMPLE_SIZE - len(agents) + 1) // 2
+            s_agents = config.SAMPLE_SIZE - len(agents) - as_agents
+            for _ in range(as_agents):
+                agent = get_agent(agents).copy()
+                agent.mutate_weights()
+                agents.append(agent)
+
+            for _ in range(s_agents):
+                (agent1, agent2) = get_agents(agents)
+                agent = agent1.breed(agent2)
+                agent.mutate_weights()
+                agents.append(agent)
+
+            for i in agents:
+                i.reset_score()
 
             logging.info("Agents: {}\n".format(len(agents)))
 
@@ -560,19 +600,11 @@ if __name__ == "__main__":
                 while len(agents) > sample_size:
                     agents.pop(random.randint(0, len(agents) - 1))
 
-            if len(agents) < sample_size:
-                logging.info("Adding random agents to fill array...\n")
-                while len(agents) < sample_size:
-                    agent = AI_Agent()
-                    agent.randomize_weights()
-                    agents.append(agent)
-
             logging.info("Playing games...")
             games_played = 0
             win_loss_table = [
                 [State.DRAW for _ in range(sample_size)] for __ in range(sample_size)
             ]
-            score = [(0.0, 0.0) for _ in range(sample_size)]
             total_games = sample_size * sample_size - sample_size
             start_time = perf_counter()
             with mp.Pool(processes=config.PROCESS_COUNT) as pool:
@@ -628,8 +660,8 @@ if __name__ == "__main__":
                         logging.error(traceback.format_exc())
                         gLogger.log_text("ERROR: {}".format(e), severity="ERROR")  # type: ignore
                         exit(1)
-                    score[i] = tuple(map(sum, zip(score[i], game.getScore(Player.BLUE))))  # type: ignore
-                    score[j] = tuple(map(sum, zip(score[j], game.getScore(Player.RED))))  # type: ignore
+                    agents[i].add_score(game.getScore(Player.BLUE))
+                    agents[j].add_score(game.getScore(Player.RED))
                     games_played += 1
                     win_loss_table[i][j] = game.gameState
                     eta = get_eta(games_played, total_games, start_time)
@@ -662,7 +694,7 @@ if __name__ == "__main__":
                             game.move_count,
                         )
                     )
-                        
+
             elapsed_time = perf_counter() - start_time
 
             logging.info("Games Complete")
@@ -675,10 +707,10 @@ if __name__ == "__main__":
             ) as f:
                 data: list[tuple[list[float], tuple[float, float], list[State]]] = []
                 for i in range(len(agents)):
-                    data.append((agents[i].weights, score[i], win_loss_table[i]))
+                    data.append((agents[i].weights, agents[i].score, win_loss_table[i]))
                 pickle.dump(data, f)
 
-            temp = [(i, score[i]) for i in range(len(score))]
+            temp = [(i, agents[i].score) for i in range(len(agents))]
             temp.sort(key=lambda x: x[1], reverse=True)
 
             logging.info("Top Agents:")
@@ -715,13 +747,13 @@ if __name__ == "__main__":
                     logging.info(str(agents[i]))
                     logging.info(
                         "Wins: {}, Losses: {}, Draws: {} Score: {}\n".format(
-                            wins, losses, draws, score[i]
+                            wins, losses, draws, agents[i].score
                         )
                     )
                     f.write(str(agents[i]) + "\n")
                     f.write(
                         "Wins: {}, Losses: {}, Draws: {} Score: {}\n\n".format(
-                            wins, losses, draws, score[i]
+                            wins, losses, draws, agents[i].score
                         )
                     )
 
