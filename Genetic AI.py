@@ -721,7 +721,7 @@ if __name__ == "__main__":
                         continue
                     if win_loss_table[i][j] == State.BLUE_WIN:
                         blue_score += 1
-                    elif win_loss_table[j][i] == State.RED_WIN:
+                    if win_loss_table[j][i] == State.RED_WIN:
                         red_score += 1
                 if blue_score > best_blue or (
                     blue_score == best_blue
