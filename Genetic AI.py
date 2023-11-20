@@ -433,20 +433,29 @@ def restore_agents(gen: int) -> list[AI_Agent]:
     try:
         # get latest file
         files = sorted(
-            Path.glob(Path(config.TRANING_LOCATION), "gen_{}_[0-9]*.pickle".format(gen))
+            Path.glob(
+                Path(config.TRANING_LOCATION),
+                "gen_{}_dataset_[0-9]*.pickle".format(gen),
+            )
         )
         if len(files) == 0:
             raise FileNotFoundError
         logging.info("Restoring agents from {}".format(files[-1]))
         with open(files[-1], "rb") as f:
-            data = pickle.load(f)
+            data: list[
+                tuple[list[float], tuple[float, float], list[State]]
+            ] = pickle.load(f)
     except FileNotFoundError:
         logging.warning("Generation {} not found, starting fresh...\n\n".format(gen))
         return []
 
     agents: list[AI_Agent] = []
     for i in data:
-        agents.append(AI_Agent(i))
+        agent = AI_Agent(i[0])
+        agent.score = i[1]
+        agents.append(agent)
+    agents.sort(key=lambda x: x.score, reverse=True)
+    agents = agents[: config.PERSISTENT_AGENTS]
     return agents
 
 
@@ -758,14 +767,6 @@ if __name__ == "__main__":
                     )
 
             agents = [agents[i] for i, _ in temp[:persistent_agents]]
-
-            logging.info("\n\nSaving agents...")
-            dump = [i.weights for i in agents]
-            file_name = config.TRANING_LOCATION + "gen_{}_{}.pickle".format(
-                generation, int(time())
-            )
-            with open(file_name, "wb+") as f:
-                pickle.dump(dump, f)
 
             (Th, Tm, Ts) = calc_time(elapsed_time)
 
