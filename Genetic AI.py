@@ -708,6 +708,44 @@ if __name__ == "__main__":
 
             logging.info("Games Complete")
 
+            logging.info("Calculating best of BLUE and RED and adding bonuses...")
+            best_blue = -1
+            best_red = -1
+            best_blue_index = 0
+            best_red_index = 0
+            for i in range(len(agents)):
+                blue_score = 0
+                red_score = 0
+                for j in range(len(agents)):
+                    if i == j:
+                        continue
+                    if win_loss_table[i][j] == State.BLUE_WIN:
+                        blue_score += 1
+                    elif win_loss_table[j][i] == State.RED_WIN:
+                        red_score += 1
+                if blue_score > best_blue or (
+                    blue_score == best_blue
+                    and agents[i].score > agents[best_blue_index].score
+                ):
+                    best_blue = blue_score
+                    best_blue_index = i
+                if red_score > best_red or (
+                    red_score == best_red
+                    and agents[i].score > agents[best_red_index].score
+                ):
+                    best_red = red_score
+                    best_red_index = i
+            agents[best_blue_index].add_score((155.0, 0.0))
+            agents[best_red_index].add_score((166.0, 0.0))
+            logging.info(
+                "Best Blue: {} ".format(str(agents[best_blue_index]))
+                + str(agents[best_blue_index].score)
+            )
+            logging.info(
+                "Best Red: {} ".format(str(agents[best_red_index]))
+                + str(agents[best_red_index].score)
+            )
+
             logging.info("Dumping complete dataset...")
             with open(
                 config.TRANING_LOCATION
