@@ -235,8 +235,8 @@ class AI_Agent:
         (0, 500),
         (0, 500),
         (0, 1),
-        # (1, 64),
-        # (0, 115.59),
+        (1, 64),
+        (0, 115.59),
     ]
     MutationRate = config.MUTATION_RATE
     MutationChance = config.MUTATION_CHANCE
@@ -267,21 +267,35 @@ class AI_Agent:
         self.score = (0.0, 0.0)
 
     def randomize_weights(self):
-        for i in range(len(self.LIMITS)):  # ignore depth and dlogb for now
+        for i in range(len(self.LIMITS) - 2):
             self.weights[i] = random.uniform(self.LIMITS[i][0], self.LIMITS[i][1])
+        self.mutate_weight(len(self.LIMITS) - 2)
+        self.mutate_weight(len(self.LIMITS) - 1)
+
+    def mutate_weight(self, i: int):
+        delta = random.uniform(-1, 1) * self.weights[i] * self.MutationRate
+        self.weights[i] += delta
+        self.weights[i] = max(self.weights[i], self.LIMITS[i][0])
+        self.weights[i] = min(self.weights[i], self.LIMITS[i][1])
 
     def mutate_weights(self):
         for i in range(len(self.LIMITS)):
             if random.random() <= self.MutationChance:
-                delta = random.uniform(-1, 1) * self.weights[i] * self.MutationRate
-                self.weights[i] += delta
-                self.weights[i] = max(self.weights[i], self.LIMITS[i][0])
-                self.weights[i] = min(self.weights[i], self.LIMITS[i][1])
+                self.mutate_weight(i)
 
     def breed(self, other: "AI_Agent"):
         child = AI_Agent()
         for i in range(len(self.LIMITS)):
             child.weights[i] = random.choice([self.weights[i], other.weights[i]])
+        return child
+
+    def asexual_baby(self):
+        child = self.copy()
+        for i in range(len(self.LIMITS) - 2):
+            if random.uniform(0, 1) <= self.MutationChance:
+                child.weights[i] = random.uniform(self.LIMITS[i][0], self.LIMITS[i][1])
+        self.mutate_weight(len(self.LIMITS) - 2)
+        self.mutate_weight(len(self.LIMITS) - 1)
         return child
 
     def copy(self):
@@ -589,8 +603,7 @@ if __name__ == "__main__":
             as_agents = (config.SAMPLE_SIZE - len(agents) + 1) // 2
             s_agents = config.SAMPLE_SIZE - len(agents) - as_agents
             for _ in range(as_agents):
-                agent = get_agent(agents).copy()
-                agent.mutate_weights()
+                agent = get_agent(agents).asexual_baby()
                 agents.append(agent)
 
             for _ in range(s_agents):

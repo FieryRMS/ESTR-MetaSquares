@@ -32,21 +32,19 @@ enum {
     DEPTH,
     DLOGB_CONSTANT
 };
-
-long double weights[DATASIZE + 2 + 2] = {
-    1,    // possible squares
-    1,    // possible score
-    1,    // pattern squares
-    1,    // pattern score
-    1,    // my squares
-    1,    // my score
-    50,   // opponent squares
-    50,   // opponent score
-    100,  // killer heuristics
-    0.8,  // killer decay constant
-    6,    // depth
-    7.81  // magic ratio constant
-};
+// gen 30 weights
+long double weights[DATASIZE + 2 + 2] = { 56.59623933696883,
+                                          0.572063991578906,
+                                          69.99721642200832,
+                                          111.9756335210177,
+                                          1.9469913261669947,
+                                          442.4014324126731,
+                                          485.77771299428315,
+                                          500,
+                                          36.331390708616794,
+                                          0.010717487523914587,
+                                          6.0,
+                                          7.81 };
 
 long double killerHeuristics[2][64][8][8];
 
@@ -576,7 +574,8 @@ ll getMove(const int player,
                 totalMoves, BestSequenceRet);
 
             killerHeuristics[currPlayer - 1][totalMoves + depth]
-                            [MovePoint.x - 1][MovePoint.y - 1] += llabs(tempScore);
+                            [MovePoint.x - 1][MovePoint.y - 1] +=
+                llabs(tempScore);
 
             if (isMaximizing == 1)
             {
