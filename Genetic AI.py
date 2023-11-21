@@ -628,6 +628,8 @@ if __name__ == "__main__":
                 i.reset_score()
 
             logging.info("Agents: {}\n".format(len(agents)))
+            for i in agents:
+                logging.info(i)
 
             if len(agents) > sample_size:
                 logging.info("Removing agents to fit array...\n")
