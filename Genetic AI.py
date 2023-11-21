@@ -295,9 +295,9 @@ class AI_Agent:
             if random.uniform(0, 1) <= self.MutationChance:
                 child.weights[i] = random.uniform(self.LIMITS[i][0], self.LIMITS[i][1])
             else:
-                self.mutate_weight(i)
-        self.mutate_weight(len(self.LIMITS) - 2)
-        self.mutate_weight(len(self.LIMITS) - 1)
+                child.mutate_weight(i)
+        child.mutate_weight(len(self.LIMITS) - 2)
+        child.mutate_weight(len(self.LIMITS) - 1)
         return child
 
     def asexual_baby2(self):
