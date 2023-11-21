@@ -289,13 +289,20 @@ class AI_Agent:
             child.weights[i] = random.choice([self.weights[i], other.weights[i]])
         return child
 
-    def asexual_baby(self):
+    def asexual_baby1(self):
         child = self.copy()
         for i in range(len(self.LIMITS) - 2):
             if random.uniform(0, 1) <= self.MutationChance:
                 child.weights[i] = random.uniform(self.LIMITS[i][0], self.LIMITS[i][1])
+            else:
+                self.mutate_weight(i)
         self.mutate_weight(len(self.LIMITS) - 2)
         self.mutate_weight(len(self.LIMITS) - 1)
+        return child
+
+    def asexual_baby2(self):
+        child = self.copy()
+        child.mutate_weights()
         return child
 
     def copy(self):
@@ -600,10 +607,15 @@ if __name__ == "__main__":
                     agent.randomize_weights()
                     agents.append(agent)
 
-            as_agents = (config.SAMPLE_SIZE - len(agents) + 1) // 2
-            s_agents = config.SAMPLE_SIZE - len(agents) - as_agents
-            for _ in range(as_agents):
-                agent = get_agent(agents).asexual_baby()
+            as1_agents = (config.SAMPLE_SIZE - len(agents) + 1) // 3
+            s_agents = (config.SAMPLE_SIZE - len(agents) - as1_agents) // 2
+            as2_agents = config.SAMPLE_SIZE - len(agents) - as1_agents - s_agents
+            for _ in range(as1_agents):
+                agent = get_agent(agents).asexual_baby1()
+                agents.append(agent)
+
+            for _ in range(as2_agents):
+                agent = get_agent(agents).asexual_baby2()
                 agents.append(agent)
 
             for _ in range(s_agents):
