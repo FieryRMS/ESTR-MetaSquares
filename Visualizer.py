@@ -3,8 +3,7 @@ from pathlib import Path
 from enum import Enum
 import logging
 import config
-import plotly.graph_objects as go
-
+import plotly.graph_objects as go # type: ignore
 
 class State(Enum):
     INCOMPLETE = 0
@@ -138,11 +137,11 @@ if __name__ == "__main__":
             )
         ]
     )
-    fig.update_layout(
+    fig.update_layout( # type: ignore
         autosize=False,
         width=cell_sz * (len(dataset) + 6),
-        height=cell_sz * (len(dataset) + 6),
+        height=cell_sz * (len(dataset) + 10),
         margin=dict(l=0, r=0, b=0, t=0, pad=0),
     )
 
-    fig.show()
+    fig.show() # type: ignore

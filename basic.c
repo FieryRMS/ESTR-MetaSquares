@@ -109,10 +109,16 @@ void printUI(const int GameBoard[],
 int input_move(const int Player, const int GameBoard[])
 {
     int Move;
+    #ifdef R_LOCAL
+    printf("Press -1 to let AI move\n");
+    #endif
     printf("%d to move: ", Player);
 
     do {
         scanf("%d", &Move);
+        #ifdef R_LOCAL
+        if (Move == -1) Move = ai_player(Player, GameBoard);
+        #endif
         switch (validate_input(Move, GameBoard))
         {
             case ERR_OUT_OF_BOUND:

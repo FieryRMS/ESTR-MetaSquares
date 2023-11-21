@@ -576,7 +576,7 @@ ll getMove(const int player,
                 totalMoves, BestSequenceRet);
 
             killerHeuristics[currPlayer - 1][totalMoves + depth]
-                            [MovePoint.x - 1][MovePoint.y - 1] += tempScore;
+                            [MovePoint.x - 1][MovePoint.y - 1] += llabs(tempScore);
 
             if (isMaximizing == 1)
             {
@@ -645,7 +645,7 @@ int ai_player(int player, const int *board)
 
     int BestMove = -1, maxDepth = weights[DEPTH], BestSequence[64] = { 0 };
 
-    int branching_factor = weights[DLOGB_CONSTANT] / maxDepth;
+    double branching_factor = weights[DLOGB_CONSTANT] / maxDepth;
     if (branching_factor > logl(64)) branching_factor = 64;
     else branching_factor = min(powl(10, branching_factor), 64);
 

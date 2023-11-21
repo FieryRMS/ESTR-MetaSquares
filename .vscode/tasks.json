@@ -20,6 +20,25 @@
             }
         },
         {
+            "label": "visualize (py)",
+            "type": "shell",
+            "command": "python",
+            "args": [
+                "./Visualizer.py"
+            ],
+            "group": {
+                "kind": "test",
+                "isDefault": "**/Visualizer.py"
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true,
+                "clear": true,
+                "showReuseMessage": false
+            }
+        },
+        {
             "label": "test (py)",
             "type": "shell",
             "command": "python",
@@ -28,7 +47,7 @@
             ],
             "group": {
                 "kind": "test",
-                "isDefault": "**/*.py"
+                "isDefault": "**/{Genetic AI.py,config.py}"
             },
             "presentation": {
                 "reveal": "always",
@@ -54,7 +73,7 @@
                 "-Wextra",
                 "-DR_LOCAL",
                 "-g",
-                "-O3",
+                "-O0",
                 "basic.c",
                 "ai_player_1155205640.c",
                 "-o",
