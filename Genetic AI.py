@@ -341,6 +341,7 @@ class MetaSquares:
         self.time_saved_AI2 = 0
         self.gameState = State.INCOMPLETE
         self.is_first_log = True
+        self.is_timed_out = False
 
     @func_set_timeout(time_limit)  # type: ignore
     def request_move(self, AI: AI_Agent, player: Player, LIB: ctypes.CDLL):
@@ -387,6 +388,7 @@ class MetaSquares:
                     raise FunctionTimedOut
             except FunctionTimedOut:
                 logging.info("AI took too long to respond")
+                self.is_timed_out = True
                 if self.board.current_player == Player.BLUE:
                     self.gameState = State.RED_WIN
                 else:
@@ -432,6 +434,8 @@ class MetaSquares:
         if (player == Player.BLUE and self.gameState == State.RED_WIN) or (
             player == Player.RED and self.gameState == State.BLUE_WIN
         ):
+            if(self.is_timed_out):
+                return (-1000, 0.0)
             return (-10.0, 0.0)
 
         score = 10.0
