@@ -539,7 +539,7 @@ def worker(
         logging.error(traceback.format_exc())
         gLogger.log_text("ERROR: {}".format(e), severity="ERROR")  # type: ignore
         raise e
-    return game, i, j, lib
+    return game, i, j, lib, agent1.weights, agent2.weights
 
 
 def get_eta(games_played: float, total_games: float, start_time: float):
@@ -669,7 +669,7 @@ if __name__ == "__main__":
                             yield i, j
 
                 nxt_task = task_gen()
-                result_list: list[AsyncResult[tuple[MetaSquares, int, int, int]]] = []
+                result_list: list[AsyncResult[tuple[MetaSquares, int, int, int, list[float], list[float]]]] = []
 
                 def add_task(lib: int, i: int, j: int):
                     Libloc1 = LIBS[2 * lib]
@@ -690,7 +690,7 @@ if __name__ == "__main__":
                         )
                     )
 
-                def call_back(args: tuple[MetaSquares, int, int, int]):
+                def call_back(args: tuple[MetaSquares, int, int, int, list[float], list[float]]):
                     try:
                         (i, j) = next(nxt_task)
                     except StopIteration:
@@ -706,7 +706,9 @@ if __name__ == "__main__":
 
                 while len(result_list) > 0:
                     try:
-                        (game, i, j, lib) = result_list.pop(0).get()
+                        agent1W: list[float]
+                        agent2W: list[float]
+                        (game, i, j, lib, agent1W, agent2W) = result_list.pop(0).get()
                     except Exception as e:
                         logging.error("ERROR: {}".format(e))
                         logging.error(traceback.format_exc())
@@ -714,6 +716,8 @@ if __name__ == "__main__":
                         exit(1)
                     agents[i].add_score(game.getScore(Player.BLUE))
                     agents[j].add_score(game.getScore(Player.RED))
+                    agents[i].weights = agent1W
+                    agents[j].weights = agent2W
                     games_played += 1
                     win_loss_table[i][j] = game.gameState
                     eta = get_eta(games_played, total_games, start_time)
