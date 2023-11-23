@@ -389,9 +389,15 @@ class MetaSquares:
                 logging.info("AI took too long to respond")
                 if self.board.current_player == Player.BLUE:
                     self.agent1.weights[Weight.DLOGB_CONSTANT.value] -= 0.5
+                    self.agent1.weights[Weight.DLOGB_CONSTANT.value] = max(
+                        self.agent1.weights[Weight.DLOGB_CONSTANT.value], 0
+                    )
                     self.gameState = State.RED_WIN
                 else:
                     self.agent2.weights[Weight.DLOGB_CONSTANT.value] -= 0.5
+                    self.agent2.weights[Weight.DLOGB_CONSTANT.value] = max(
+                        self.agent2.weights[Weight.DLOGB_CONSTANT.value], 0
+                    )
                     self.gameState = State.BLUE_WIN
                 break
             except Exception as e:
