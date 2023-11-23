@@ -31,6 +31,7 @@ class State(Enum):
     BLUE_WIN = 1
     RED_WIN = 2
     DRAW = 3
+    RESTART = 4
 
 
 class Weight(Enum):
@@ -224,7 +225,7 @@ class MetaSquaresBoard:
 
 
 class AI_Agent:
-    LIMITS = [
+    LIMITS: list[tuple[float, float]] = [
         (0, 500),
         (0, 500),
         (0, 500),
@@ -235,8 +236,8 @@ class AI_Agent:
         (0, 500),
         (0, 500),
         (0, 1),
-        (1, 64),
-        (0, 115.59),
+        (4, 26),
+        (6, 8),
     ]
     MutationRate = config.MUTATION_RATE
     MutationChance = config.MUTATION_CHANCE
@@ -267,10 +268,8 @@ class AI_Agent:
         self.score = (0.0, 0.0)
 
     def randomize_weights(self):
-        for i in range(len(self.LIMITS) - 2):
+        for i in range(len(self.LIMITS)):
             self.weights[i] = random.uniform(self.LIMITS[i][0], self.LIMITS[i][1])
-        self.mutate_weight(len(self.LIMITS) - 2)
-        self.mutate_weight(len(self.LIMITS) - 1)
 
     def mutate_weight(self, i: int):
         delta = random.uniform(-1, 1) * self.weights[i] * self.MutationRate
@@ -291,13 +290,11 @@ class AI_Agent:
 
     def asexual_baby1(self):
         child = self.copy()
-        for i in range(len(self.LIMITS) - 2):
+        for i in range(len(self.LIMITS)):
             if random.uniform(0, 1) <= self.MutationChance:
                 child.weights[i] = random.uniform(self.LIMITS[i][0], self.LIMITS[i][1])
             else:
                 child.mutate_weight(i)
-        child.mutate_weight(len(self.LIMITS) - 2)
-        child.mutate_weight(len(self.LIMITS) - 1)
         return child
 
     def asexual_baby2(self):
@@ -309,6 +306,14 @@ class AI_Agent:
         return AI_Agent(self.weights)
 
     def set_LIB_state(self, LIB: ctypes.CDLL):
+        self.weights[Weight.DLOGB_CONSTANT.value] = min(
+            self.weights[Weight.DLOGB_CONSTANT.value],
+            AI_Agent.LIMITS[Weight.DLOGB_CONSTANT.value][1],
+        )
+        self.weights[Weight.DLOGB_CONSTANT.value] = max(
+            self.weights[Weight.DLOGB_CONSTANT.value],
+            AI_Agent.LIMITS[Weight.DLOGB_CONSTANT.value][0],
+        )
         c_test_weights = (ctypes.c_double * len(self.weights))(*self.weights)
         LIB.reset_state(c_test_weights)
 
@@ -386,19 +391,33 @@ class MetaSquares:
                 if delta > self.time_limit:
                     raise FunctionTimedOut
             except FunctionTimedOut:
-                logging.info("AI took too long to respond")
+                logging.info(
+                    "AI took too long to respond, decreasing DLOGB_CONSTANT and restarting..."
+                )
+                self.gameState = State.RESTART
+                prev: float
                 if self.board.current_player == Player.BLUE:
-                    self.agent1.weights[Weight.DLOGB_CONSTANT.value] -= 0.5
-                    self.agent1.weights[Weight.DLOGB_CONSTANT.value] = max(
-                        self.agent1.weights[Weight.DLOGB_CONSTANT.value], 0
-                    )
-                    self.gameState = State.RED_WIN
+                    prev = self.agent1.weights[Weight.DLOGB_CONSTANT.value]
+                    self.agent1.weights[Weight.DLOGB_CONSTANT.value] -= 0.1
                 else:
-                    self.agent2.weights[Weight.DLOGB_CONSTANT.value] -= 0.5
-                    self.agent2.weights[Weight.DLOGB_CONSTANT.value] = max(
-                        self.agent2.weights[Weight.DLOGB_CONSTANT.value], 0
+                    prev = self.agent2.weights[Weight.DLOGB_CONSTANT.value]
+                    self.agent2.weights[Weight.DLOGB_CONSTANT.value] -= 0.1
+
+                AI_Agent.LIMITS[Weight.DLOGB_CONSTANT.value] = (
+                    AI_Agent.LIMITS[Weight.DLOGB_CONSTANT.value][0],
+                    prev,
+                )
+                logging.warn(
+                    "DLOGB_CONSTANT: {}".format(
+                        AI_Agent.LIMITS[Weight.DLOGB_CONSTANT.value]
                     )
-                    self.gameState = State.BLUE_WIN
+                )
+                gLogger.log_text(  # type: ignore
+                    "DLOGB_CONSTANT: {}".format(
+                        AI_Agent.LIMITS[Weight.DLOGB_CONSTANT.value]
+                    ),
+                    severity="WARNING",
+                )
                 break
             except Exception as e:
                 logging.error("ERROR: {}".format(e))
@@ -523,7 +542,11 @@ def worker(
         LIB1 = setup_LIB(LIBLOC1)
         LIB2 = setup_LIB(LIBLOC2)
         game = MetaSquares(agent1, agent2, LIB1, LIB2)
-        game.game_loop()
+        while 1:
+            game.game_loop()
+            if game.gameState != State.RESTART:
+                break
+            game = MetaSquares(agent1, agent2, LIB1, LIB2)
     except Exception as e:
         logging.error("ERROR: {}".format(e))
         logging.error(traceback.format_exc())
@@ -636,8 +659,6 @@ if __name__ == "__main__":
                 i.reset_score()
 
             logging.info("Agents: {}\n".format(len(agents)))
-            for i in agents:
-                logging.info(i)
 
             if len(agents) > sample_size:
                 logging.info("Removing agents to fit array...\n")
