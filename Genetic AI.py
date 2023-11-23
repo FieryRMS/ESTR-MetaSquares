@@ -395,29 +395,16 @@ class MetaSquares:
                     "AI took too long to respond, decreasing DLOGB_CONSTANT and restarting..."
                 )
                 self.gameState = State.RESTART
-                prev: float
                 if self.board.current_player == Player.BLUE:
-                    prev = self.agent1.weights[Weight.DLOGB_CONSTANT.value]
+                    logging.info(
+                        "AI1: " + str(self.agent1.weights[Weight.DLOGB_CONSTANT.value])
+                    )
                     self.agent1.weights[Weight.DLOGB_CONSTANT.value] -= 0.1
                 else:
-                    prev = self.agent2.weights[Weight.DLOGB_CONSTANT.value]
-                    self.agent2.weights[Weight.DLOGB_CONSTANT.value] -= 0.1
-
-                AI_Agent.LIMITS[Weight.DLOGB_CONSTANT.value] = (
-                    AI_Agent.LIMITS[Weight.DLOGB_CONSTANT.value][0],
-                    prev,
-                )
-                logging.warn(
-                    "DLOGB_CONSTANT: {}".format(
-                        AI_Agent.LIMITS[Weight.DLOGB_CONSTANT.value]
+                    logging.info(
+                        "AI2: " + str(self.agent2.weights[Weight.DLOGB_CONSTANT.value])
                     )
-                )
-                gLogger.log_text(  # type: ignore
-                    "DLOGB_CONSTANT: {}".format(
-                        AI_Agent.LIMITS[Weight.DLOGB_CONSTANT.value]
-                    ),
-                    severity="WARNING",
-                )
+                    self.agent2.weights[Weight.DLOGB_CONSTANT.value] -= 0.1
                 break
             except Exception as e:
                 logging.error("ERROR: {}".format(e))
