@@ -237,7 +237,7 @@ class AI_Agent:
         (0, 500),
         (0, 1),
         (4, 26),
-        (6, 8),
+        (0, 8),
     ]
     MutationRate = config.MUTATION_RATE
     MutationChance = config.MUTATION_CHANCE
@@ -271,11 +271,16 @@ class AI_Agent:
         for i in range(len(self.LIMITS)):
             self.weights[i] = random.uniform(self.LIMITS[i][0], self.LIMITS[i][1])
 
+        self.check_and_fix_limits()
+
     def mutate_weight(self, i: int):
         delta = random.uniform(-1, 1) * self.weights[i] * self.MutationRate
         self.weights[i] += delta
-        self.weights[i] = max(self.weights[i], self.LIMITS[i][0])
-        self.weights[i] = min(self.weights[i], self.LIMITS[i][1])
+
+    def check_and_fix_limits(self):
+        for i in range(len(self.LIMITS)):
+            self.weights[i] = max(self.weights[i], self.LIMITS[i][0])
+            self.weights[i] = min(self.weights[i], self.LIMITS[i][1])
 
     def mutate_weights(self):
         for i in range(len(self.LIMITS)):
@@ -306,14 +311,7 @@ class AI_Agent:
         return AI_Agent(self.weights)
 
     def set_LIB_state(self, LIB: ctypes.CDLL):
-        self.weights[Weight.DLOGB_CONSTANT.value] = min(
-            self.weights[Weight.DLOGB_CONSTANT.value],
-            AI_Agent.LIMITS[Weight.DLOGB_CONSTANT.value][1],
-        )
-        self.weights[Weight.DLOGB_CONSTANT.value] = max(
-            self.weights[Weight.DLOGB_CONSTANT.value],
-            AI_Agent.LIMITS[Weight.DLOGB_CONSTANT.value][0],
-        )
+        self.check_and_fix_limits()
         c_test_weights = (ctypes.c_double * len(self.weights))(*self.weights)
         LIB.reset_state(c_test_weights)
 
@@ -624,26 +622,33 @@ if __name__ == "__main__":
                     agent = AI_Agent()
                     agent.randomize_weights()
                     agents.append(agent)
+            else:
+                for i in agents:
+                    i.weights[Weight.DLOGB_CONSTANT.value] *= 1.2
 
             as1_agents = (config.SAMPLE_SIZE - len(agents) + 1) // 3
             s_agents = (config.SAMPLE_SIZE - len(agents) - as1_agents) // 2
             as2_agents = config.SAMPLE_SIZE - len(agents) - as1_agents - s_agents
             for _ in range(as1_agents):
                 agent = get_agent(agents).asexual_baby1()
+                agent.weights[Weight.DLOGB_CONSTANT.value] *= 0.8
                 agents.append(agent)
 
             for _ in range(as2_agents):
                 agent = get_agent(agents).asexual_baby2()
+                agent.weights[Weight.DLOGB_CONSTANT.value] *= 0.8
                 agents.append(agent)
 
             for _ in range(s_agents):
                 (agent1, agent2) = get_agents(agents)
                 agent = agent1.breed(agent2)
                 agent.mutate_weights()
+                agent.weights[Weight.DLOGB_CONSTANT.value] *= 0.8
                 agents.append(agent)
 
             for i in agents:
                 i.reset_score()
+                i.check_and_fix_limits()
 
             logging.info("Agents: {}\n".format(len(agents)))
 
@@ -669,7 +674,11 @@ if __name__ == "__main__":
                             yield i, j
 
                 nxt_task = task_gen()
-                result_list: list[AsyncResult[tuple[MetaSquares, int, int, int, list[float], list[float]]]] = []
+                result_list: list[
+                    AsyncResult[
+                        tuple[MetaSquares, int, int, int, list[float], list[float]]
+                    ]
+                ] = []
 
                 def add_task(lib: int, i: int, j: int):
                     Libloc1 = LIBS[2 * lib]
@@ -690,7 +699,9 @@ if __name__ == "__main__":
                         )
                     )
 
-                def call_back(args: tuple[MetaSquares, int, int, int, list[float], list[float]]):
+                def call_back(
+                    args: tuple[MetaSquares, int, int, int, list[float], list[float]]
+                ):
                     try:
                         (i, j) = next(nxt_task)
                     except StopIteration:
