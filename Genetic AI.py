@@ -13,6 +13,7 @@ import google.cloud.logging
 import multiprocessing as mp
 from multiprocessing.pool import AsyncResult
 import shutil
+import subprocess
 
 from pathlib import Path
 
@@ -580,6 +581,9 @@ if __name__ == "__main__":
         shutil.copyfile(config.DLLLOC + config.DLLNAME, dst)
         LIBS.append(dst)
 
+    with open("restart.bool", "w+") as f:
+        f.write("false")
+
     file_handler = logging.FileHandler(
         config.TRANING_LOCATION + "genetic_errors_{}.log".format(int(time()))
     )
@@ -879,6 +883,13 @@ if __name__ == "__main__":
                     generation, round(Th), round(Tm), round(Ts)
                 )
             )
+            with open("restart.bool", "r") as f:
+                if f.read().lower().strip() == "true":
+                    logging.info("Restarting...")
+                    gLogger.log_text("Restarting...")  # type: ignore
+                    subprocess.run("nohup ./restart.sh &", shell=True)
+                    exit(0)
+
         except KeyboardInterrupt:
             logging.info("Keyboard Interrupt")
             break
