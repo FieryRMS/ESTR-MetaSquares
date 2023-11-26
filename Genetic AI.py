@@ -394,9 +394,7 @@ class MetaSquares:
                 if delta > self.time_limit:
                     raise FunctionTimedOut
             except FunctionTimedOut:
-                logging.info(
-                    "AI took too long to respond, decreasing DLOGB_CONSTANT and restarting..."
-                )
+                logging.info("AI took too long to respond, decreasing DLOGB_CONSTANT")
                 self.gameState = State.RESTART
                 if self.board.current_player == Player.BLUE:
                     logging.info(
@@ -532,11 +530,7 @@ def worker(
         LIB1 = setup_LIB(LIBLOC1)
         LIB2 = setup_LIB(LIBLOC2)
         game = MetaSquares(agent1, agent2, LIB1, LIB2)
-        while 1:
-            game.game_loop()
-            if game.gameState != State.RESTART:
-                break
-            game = MetaSquares(agent1, agent2, LIB1, LIB2)
+        game.game_loop()
     except Exception as e:
         logging.error("ERROR: {}".format(e))
         logging.error(traceback.format_exc())
@@ -710,11 +704,24 @@ if __name__ == "__main__":
                 def call_back(
                     args: tuple[MetaSquares, int, int, int, list[float], list[float]]
                 ):
+                    (game, i, j, lib, agent1W, agent2W) = args
+                    if game.gameState == State.RESTART:
+                        logging.info("Game reqested restart...")
+                        agents[i].weights[Weight.DLOGB_CONSTANT.value] = min(
+                            agents[i].weights[Weight.DLOGB_CONSTANT.value],
+                            agent1W[Weight.DLOGB_CONSTANT.value],
+                        )
+                        agents[j].weights[Weight.DLOGB_CONSTANT.value] = min(
+                            agents[j].weights[Weight.DLOGB_CONSTANT.value],
+                            agent2W[Weight.DLOGB_CONSTANT.value],
+                        )
+                        add_task(lib, i, j)
+                        return
                     try:
                         (i, j) = next(nxt_task)
                     except StopIteration:
                         return
-                    add_task(args[3], i, j)
+                    add_task(lib, i, j)
 
                 for lib in range(config.PROCESS_COUNT):
                     try:
@@ -733,6 +740,8 @@ if __name__ == "__main__":
                         logging.error(traceback.format_exc())
                         gLogger.log_text("ERROR: {}".format(e), severity="ERROR")  # type: ignore
                         exit(1)
+                    if game.gameState == State.RESTART:
+                        continue
                     agents[i].add_score(game.getScore(Player.BLUE))
                     agents[j].add_score(game.getScore(Player.RED))
                     agents[i].weights = agent1W
