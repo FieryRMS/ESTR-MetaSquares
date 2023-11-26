@@ -288,6 +288,8 @@ class AI_Agent:
             if random.random() <= self.MutationChance:
                 self.mutate_weight(i)
 
+        self.check_and_fix_limits()
+
     def breed(self, other: "AI_Agent"):
         child = AI_Agent()
         for i in range(len(self.LIMITS)):
@@ -301,11 +303,13 @@ class AI_Agent:
                 child.weights[i] = random.uniform(self.LIMITS[i][0], self.LIMITS[i][1])
             else:
                 child.mutate_weight(i)
+        child.check_and_fix_limits()
         return child
 
     def asexual_baby2(self):
         child = self.copy()
         child.mutate_weights()
+        child.check_and_fix_limits()
         return child
 
     def copy(self):
@@ -626,9 +630,6 @@ if __name__ == "__main__":
                     agent = AI_Agent()
                     agent.randomize_weights()
                     agents.append(agent)
-            else:
-                for i in agents:
-                    i.weights[Weight.DLOGB_CONSTANT.value] *= 1.2
 
             as1_agents = (config.SAMPLE_SIZE - len(agents) + 1) // 3
             s_agents = (config.SAMPLE_SIZE - len(agents) - as1_agents) // 2
@@ -649,6 +650,9 @@ if __name__ == "__main__":
                 agent.mutate_weights()
                 agent.weights[Weight.DLOGB_CONSTANT.value] *= 0.8
                 agents.append(agent)
+
+            for i in range(persistent_agents):
+                agents[i].weights[Weight.DLOGB_CONSTANT.value] *= 1.2
 
             for i in agents:
                 i.reset_score()
