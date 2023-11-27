@@ -103,6 +103,18 @@ void printUI(const int GameBoard[],
     }
 }
 
+int getInput()
+{
+    int result;
+    while (1)
+    {
+        if (scanf("%d", &result) > 0) return result;
+        while ((result = getchar()) != '\n' && result != EOF)
+            ;
+        printf("Invalid input, please input a number: ");
+    }
+}
+
 /**
  * Function #3: Read a location from the user.
  */
@@ -115,8 +127,7 @@ int input_move(const int Player, const int GameBoard[])
     printf("%d to move: ", Player);
 
     do {
-        scanf("%d", &Move);
-        fflush(stdin);
+        Move = getInput();
 #ifdef R_LOCAL
         if (Move == -1) Move = ai_player(Player, GameBoard);
 #endif
@@ -148,8 +159,7 @@ int main()
     printf("Choose the game mode: ");
     while (1)
     {
-        scanf("%d", &GameMode);
-        fflush(stdin);
+        GameMode = getInput();
         if (GameMode != 1 && GameMode != 2)
         {
 #ifdef R_LOCAL
