@@ -109,16 +109,17 @@ void printUI(const int GameBoard[],
 int input_move(const int Player, const int GameBoard[])
 {
     int Move;
-    #ifdef R_LOCAL
+#ifdef R_LOCAL
     printf("Press -1 to let AI move\n");
-    #endif
+#endif
     printf("%d to move: ", Player);
 
     do {
         scanf("%d", &Move);
-        #ifdef R_LOCAL
+        fflush(stdin);
+#ifdef R_LOCAL
         if (Move == -1) Move = ai_player(Player, GameBoard);
-        #endif
+#endif
         switch (validate_input(Move, GameBoard))
         {
             case ERR_OUT_OF_BOUND:
@@ -139,13 +140,25 @@ int input_move(const int Player, const int GameBoard[])
 
 int main()
 {
-    int GameBoard[89], RedScore, BlueScore, Player, GameMode,
-        PointCnt[2] = { 0 };
+    int GameBoard[89], RedScore, BlueScore, Player, GameMode = -1,
+                                                    PointCnt[2] = { 0 };
     Point PointList[2][64];
 
     init(GameBoard, &RedScore, &BlueScore, &Player, PointCnt);
     printf("Choose the game mode: ");
-    scanf("%d", &GameMode);
+    while (1)
+    {
+        scanf("%d", &GameMode);
+        fflush(stdin);
+        if (GameMode != 1 && GameMode != 2)
+        {
+#ifdef R_LOCAL
+            if (GameMode == 3) break;
+#endif
+            printf("Invalid input, please input again: ");
+        }
+        else break;
+    }
     int gameState = 0;
     printUI(GameBoard, RedScore, BlueScore, Player);
     do {

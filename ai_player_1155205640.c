@@ -32,19 +32,13 @@ enum {
     DEPTH,
     DLOGB_CONSTANT
 };
-// gen 30 weights
-long double weights[DATASIZE + 2 + 2] = { 56.59623933696883,
-                                          0.572063991578906,
-                                          69.99721642200832,
-                                          111.9756335210177,
-                                          1.9469913261669947,
-                                          442.4014324126731,
-                                          485.77771299428315,
-                                          500,
-                                          36.331390708616794,
-                                          0.010717487523914587,
-                                          6.0,
-                                          7.81 };
+// gen 65
+long double weights[DATASIZE + 2 + 2] = {
+    57.10793974618193,    0.2983804750242265,  321.8868740226576,
+    10.99979629728692,    0.38843905144037727, 500,
+    149.90486032307075,   365.5439947104366,   12.472666080980586,
+    0.008860246658679224, 6.089372906210512,   7.380000000000001
+};
 
 long double killerHeuristics[2][64][8][8];
 
@@ -85,7 +79,7 @@ int debug = 1;
 #define DEBUGS debug = 1
 #define DEBUGE debug = 0
 
-void printBoard(const int GameBoard[])
+void debugBoard(const int GameBoard[])
 {
     if (!debug) return;
     printf("   1 2 3 4 5 6 7 8\n");
