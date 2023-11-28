@@ -274,8 +274,10 @@ class AI_Agent:
 
         self.check_and_fix_limits()
 
-    def mutate_weight(self, i: int):
-        delta = random.uniform(-1, 1) * self.weights[i] * self.MutationRate
+    def mutate_weight(self, i: int, rate: float | None = None):
+        if rate == None:
+            rate = self.MutationRate
+        delta = random.uniform(-1, 1) * self.weights[i] * rate
         self.weights[i] += delta
 
     def check_and_fix_limits(self):
@@ -625,9 +627,18 @@ if __name__ == "__main__":
                     agent.randomize_weights()
                     agents.append(agent)
 
-            as1_agents = (config.SAMPLE_SIZE - len(agents) + 1) // 3
-            s_agents = (config.SAMPLE_SIZE - len(agents) - as1_agents) // 2
-            as2_agents = config.SAMPLE_SIZE - len(agents) - as1_agents - s_agents
+            as1_agents = (
+                config.SAMPLE_SIZE - (len(agents) + persistent_agents) + 1
+            ) // 3
+            s_agents = (
+                config.SAMPLE_SIZE - (len(agents) + persistent_agents) - as1_agents
+            ) // 2
+            as2_agents = (
+                config.SAMPLE_SIZE
+                - (len(agents) + persistent_agents)
+                - as1_agents
+                - s_agents
+            )
             for _ in range(as1_agents):
                 agent = get_agent(agents).asexual_baby1()
                 agent.weights[Weight.DLOGB_CONSTANT.value] *= 0.8
@@ -647,6 +658,11 @@ if __name__ == "__main__":
 
             for i in range(persistent_agents):
                 agents[i].weights[Weight.DLOGB_CONSTANT.value] *= 1.2
+                agents[i].check_and_fix_limits()
+                agent = agents[i].asexual_baby2()
+                agent.mutate_weight(Weight.DEPTH.value, 1)
+                agent.check_and_fix_limits()
+                agents.append(agent)
 
             for i in agents:
                 i.reset_score()
