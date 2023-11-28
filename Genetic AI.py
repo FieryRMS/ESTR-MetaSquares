@@ -658,10 +658,8 @@ if __name__ == "__main__":
 
             for i in range(persistent_agents):
                 agents[i].weights[Weight.DLOGB_CONSTANT.value] *= 1.2
-                agents[i].check_and_fix_limits()
                 agent = agents[i].asexual_baby2()
-                agent.mutate_weight(Weight.DEPTH.value, 1)
-                agent.check_and_fix_limits()
+                agent.weights[Weight.DEPTH.value] *= random.uniform(1.1, 2)
                 agents.append(agent)
 
             for i in agents:
