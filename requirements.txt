@@ -1,3 +1,2 @@
 func_timeout==4.3.5
-google-cloud-logging==3.8.0
-matplotlib==3.8.1
+plotly==5.18.0
