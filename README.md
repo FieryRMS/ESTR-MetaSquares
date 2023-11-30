@@ -15,7 +15,6 @@ It should be noted that the build task, by default, has `-DR_LOCAL` defined, whi
 
 ## 🎮 How to play
 
-1. This program was tested on Python 3.12.0.
 1. Choose a game mode: 1 for human vs human, 2 for human vs AI, 3 for AI vs Human.
 1. To make a move, enter the coordinates of the piece you want to place in the format `xy`, where x is the row number and y is the column number. For example, to place a piece at the bottom-left corner, enter `81`.
 1. Players take turns placing a piece on the board. Blue goes first because, well, someone has to.
@@ -25,6 +24,7 @@ It should be noted that the build task, by default, has `-DR_LOCAL` defined, whi
 
 ## 💪 How to train the AI
 
+1. This program was tested on Python 3.12.0.
 1. Install the dependencies by running `pip install -r requirements.txt`.
 1. Make necessary changes to `config.py` to configure the training process.
 1. This project was configured to run on Google Compute Engine. The machine I used was `c2d-highcpu-8`. As of now, Google Compute provides $300 __free__ credits for new users. Yay.
@@ -151,4 +151,4 @@ These are all the AIs that I was able to find, and my AI beat all of them every 
 
 ## 🔮 Future of the Project
 
-This AI is nowhere near perfect and is definitely beatable, but it is already very strong and beat all of the AIs I was able to find. So it may be safe to say that it is currently the best AI to date (because the rest are outdated due to a lack of popularity of the game hehe). You may try to beat it yourself and let me know if you are able to do so :) Feel free to open an issue or make pull requests if you have any questions or suggestions. I personally will probably not be working on this project anymore, but I will try to answer any questions you may have.
+This AI is nowhere near perfect and is definitely beatable, but it is already very strong and beat all of the AIs I was able to find. So it may be safe to say that it is currently the best AI to date (because the rest are outdated due to a lack of popularity of the game hehe). So, I currently don't have a motivation to keep working on this project as of now. You may try to beat it yourself and let me know if you are able to do so :) Feel free to open an issue or make pull requests if you have any questions or suggestions. I personally will probably not be working on this project anymore, but I will try to answer any questions you may have.
