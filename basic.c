@@ -121,16 +121,12 @@ int getInput()
 int input_move(const int Player, const int GameBoard[])
 {
     int Move;
-#ifdef R_LOCAL
     printf("Press -1 to let AI move\n");
-#endif
     printf("%d to move: ", Player);
 
     do {
         Move = getInput();
-#ifdef R_LOCAL
         if (Move == -1) Move = ai_player(Player, GameBoard);
-#endif
         switch (validate_input(Move, GameBoard))
         {
             case ERR_OUT_OF_BOUND:
@@ -160,11 +156,8 @@ int main()
     while (1)
     {
         GameMode = getInput();
-        if (GameMode != 1 && GameMode != 2)
+        if (GameMode != 1 && GameMode != 2 && GameMode != 3)
         {
-#ifdef R_LOCAL
-            if (GameMode == 3) break;
-#endif
             printf("Invalid input, please input again: ");
         }
         else break;
