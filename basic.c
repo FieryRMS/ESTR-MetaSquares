@@ -24,6 +24,12 @@
 #include <stdlib.h>
 #include "ai_player_1155205640.h"
 
+#define ANSI_COLOR_RED "\x1b[31m"
+#define ANSI_COLOR_BLUE "\x1b[34m"
+#define ANSI_COLOR_RESET "\x1b[0m"
+
+#define STR_CLR(color, str) color str ANSI_COLOR_RESET
+
 enum { EMPTY, BLUE, RED, DRAW };
 enum { ERR_NONE, ERR_OUT_OF_BOUND, ERR_OCCUPIED };
 
@@ -41,13 +47,13 @@ void make_move(const int Move,
 
     if (Player == BLUE)
     {
-        printf("BLUE moves to %d\n", Move);
+        printf(STR_CLR(ANSI_COLOR_BLUE, "BLUE") " moves to %d\n", Move);
         GameBoard[Move] = BLUE;
         PointList[0][PointCnt[0]++] = num2point(Move);
     }
     else
     {
-        printf("RED moves to %d\n", Move);
+        printf(STR_CLR(ANSI_COLOR_RED, "RED") " moves to %d\n", Move);
         GameBoard[Move] = RED;
         PointList[1][PointCnt[1]++] = num2point(Move);
     }
@@ -78,8 +84,12 @@ void printUI(const int GameBoard[],
              const int BlueScore,
              const int Player)
 {
-    printf("This is %s's turn\n", Player == BLUE ? "BLUE" : "RED");
-    printf("[ Blue's Score=%d ; Red's Score=%d ]\n", BlueScore, RedScore);
+    printf("This is %s's turn\n", Player == BLUE
+                                      ? STR_CLR(ANSI_COLOR_BLUE, "BLUE")
+                                      : STR_CLR(ANSI_COLOR_RED, "RED"));
+    printf("[ " STR_CLR(ANSI_COLOR_BLUE, "Blue") "'s Score=%d ; " STR_CLR(
+               ANSI_COLOR_RED, "Red") "'s Score=%d ]\n",
+           BlueScore, RedScore);
     printf("   1 2 3 4 5 6 7 8\n");
     for (int i = 1; i <= 8; i++)
     {
@@ -92,10 +102,10 @@ void printUI(const int GameBoard[],
                     printf(". ");
                     break;
                 case BLUE:
-                    printf("# ");
+                    printf(STR_CLR(ANSI_COLOR_BLUE, "# "));
                     break;
                 case RED:
-                    printf("0 ");
+                    printf(STR_CLR(ANSI_COLOR_RED, "0 "));
                     break;
             };
         }
